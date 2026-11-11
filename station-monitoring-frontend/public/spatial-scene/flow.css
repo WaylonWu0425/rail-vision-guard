@@ -1,0 +1,30 @@
+/* Remove rigid panel seams while keeping operational groupings legible. */
+.workspace{gap:0}
+.left-column,.right-column{border:0;border-radius:0;box-shadow:none;gap:0}
+.left-column{padding-right:12px;background:linear-gradient(90deg,#092943b8 0%,#08263e8a 72%,transparent 100%)}
+.right-column{padding-left:12px;background:linear-gradient(90deg,transparent 0%,#09253e8a 25%,#092943b8 100%)}
+.center-column{gap:0;background:radial-gradient(ellipse at 48% 48%,#0a426036,transparent 72%)}
+.left-column .panel,.right-column .panel{background:transparent;border:0;box-shadow:none}
+.left-column .panel+.panel,.right-column .panel+.panel{border:0}
+.left-column .panel h2,.right-column .panel h2{margin-bottom:8px;padding-top:12px;padding-bottom:6px;background:none;border:0}
+.left-column .panel h2:after,.right-column .panel h2:after{display:none}
+.left-column .panel h2:before,.right-column .panel h2:before{height:14px;top:17px;width:2px;background:#3ac6f2;opacity:.7}
+.left-column .device-panel{padding-bottom:9px}
+.left-column .rule-panel{padding-top:10px}
+.left-column .review-panel{padding-top:16px}
+.left-column .rule-panel:before,.left-column .review-panel:before,.right-column .evidence-panel:before{content:'';display:block;position:absolute;top:7px;left:15px;width:34px;height:1px;background:linear-gradient(90deg,#48b8db66,transparent);pointer-events:none}
+.device-count{background:linear-gradient(90deg,#0b486c75,transparent 90%);border:0;border-radius:0;margin:1px -3px 0;padding:7px}
+.rule-list>div,.rule-list>button{border-bottom-color:#53839b24}.rule-list>div:last-child{border-bottom:0}
+.footnote{border:0}.review-content{padding-top:3px}
+.stage{background:radial-gradient(ellipse at 47% 53%,#14536b2c,transparent 67%)}
+.trend-panel{border:0;background:linear-gradient(180deg,transparent,#082a4654 34%,#082a4670);box-shadow:none;margin-top:-5px;padding-top:6px}
+.trend-panel h2{background:none;border:0;margin-bottom:0}
+.trend-panel h2:before{height:15px;top:11px;opacity:.7}
+.chart-note{border:0}
+.right-column .event-panel{padding-bottom:8px}
+.event-filter{border:0;margin-bottom:5px;padding-bottom:6px}
+.event-list{background:linear-gradient(180deg,#0d395424,transparent 40%);padding-right:6px}
+.event-row{border-bottom-color:#6b9cb51d}
+.right-column .evidence-panel{padding-top:14px;background:linear-gradient(180deg,transparent,#092e4a32 16%,#092e4a46)}
+.evidence-heading{margin-top:4px}.evidence-meta{border:0;margin-bottom:8px}
+@media(max-width:1500px){.left-column{padding-right:8px}.right-column{padding-left:8px}.left-column .rule-panel{padding-top:7px}.left-column .review-panel{padding-top:10px}.right-column .evidence-panel{padding-top:9px}}

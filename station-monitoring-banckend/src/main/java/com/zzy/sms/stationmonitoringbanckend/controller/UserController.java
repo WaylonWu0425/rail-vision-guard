@@ -1,12 +1,12 @@
 package com.zzy.sms.stationmonitoringbanckend.controller;
 
-import cn.dev33.satoken.annotation.SaCheckLogin;
-import cn.dev33.satoken.secure.SaBase64Util;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.zzy.sms.stationmonitoringbanckend.entity.User;
 import com.zzy.sms.stationmonitoringbanckend.service.EmailService;
+import com.zzy.sms.stationmonitoringbanckend.service.PasswordService;
 import com.zzy.sms.stationmonitoringbanckend.service.UserService;
+import com.zzy.sms.stationmonitoringbanckend.service.VerificationCodeRateLimitException;
 import com.zzy.sms.stationmonitoringbanckend.util.DateTimeUtil;
 import com.zzy.sms.stationmonitoringbanckend.util.Validator;
 
@@ -16,10 +16,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 
+import javax.servlet.http.HttpServletRequest;
 import javax.mail.MessagingException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -38,55 +40,65 @@ public class UserController {
     @Autowired
     private EmailService emailService;
     @Autowired
+    private PasswordService passwordService;
+    @Autowired
     private RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/send-code")
-    public ResponseEntity sendCode(@RequestParam("email") String email) throws MessagingException {
+    public ResponseEntity sendCode(@RequestParam("email") String email, HttpServletRequest request) {
         Map<String, Object> response = new HashMap<>();
-        if (emailService.sendVerificationCode(email) != null) {
+        if (!Validator.isValidEmail(email)) {
+            response.put("message", "邮箱格式不正确");
+            response.put("success", false);
+            return ResponseEntity.badRequest().body(response);
+        }
+        try {
+            emailService.sendVerificationCode(email, request.getRemoteAddr());
             response.put("message", "验证码发送成功");
             response.put("success", true);
             return ResponseEntity.ok(response);
-        } else {
+        } catch (VerificationCodeRateLimitException exception) {
+            response.put("message", exception.getMessage());
+            response.put("success", false);
+            return ResponseEntity.status(429).body(response);
+        } catch (MessagingException exception) {
             response.put("message", "验证码发送失败");
             response.put("success", false);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.status(503).body(response);
         }
     }
 
-    @SaCheckLogin   // 登录验证
     @PostMapping("/doLogin/account")
     public SaResult doLoginWithAccount(@RequestParam("account") String account, @RequestParam("password") String password) {
         if (!Validator.isValidAccount(account)) return SaResult.error("账户格式不正确");
         if (!Validator.isValidPassword(password)) return SaResult.error("密码格式不正确");
         User user = new User(null, null, account, null, null, null, null, null, null, null, null, null, null, null);
         User user1 = userService.queryAllByLimit(user);
-        if (user1 == null) return SaResult.error("用户不存在");
-        if (SaBase64Util.decode(user1.getPassword()).equals(password)) {
+        if (user1 == null) return SaResult.error("账号或密码错误");
+        String storedPassword = user1.getPassword();
+        if (passwordService.matches(password, storedPassword)) {
+            if (passwordService.needsUpgrade(storedPassword)) {
+                user1.setPassword(passwordService.encode(password));
+                userService.update(user1);
+            }
             StpUtil.login(user1.getId());
             user1.setPassword(null);
             return SaResult.ok().setData(user1).setMsg("登录成功");
         }
-        // / 添加详细日志
-        System.out.println("密码不匹配！");
-        System.out.println("DB密码解码后: " + SaBase64Util.decode(user1.getPassword()));
-        System.out.println("前端密码: " + password);
-        return SaResult.error("登录失败");
+        return SaResult.error("账号或密码错误");
     }
 
     @PostMapping("/doLogin/email")
     public SaResult doLoginWithEmail(@RequestParam("email") String email, @RequestParam("code") String code) {
         if (!Validator.isValidEmail(email)) return SaResult.error("邮件格式不正确");
-        User user = new User(null, null, null, null, email, null, null, null, null, null, null, null, null, null);
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        User user = new User(null, null, null, null, normalizedEmail, null, null, null, null, null, null, null, null, null);
         User user1 = userService.queryAllByLimit(user);
-        if (user1 == null) return SaResult.error("用户不存在");
-        String key = "email:code:" + email;
+        if (user1 == null) return SaResult.error("邮箱或验证码错误");
+        String key = "email:code:" + normalizedEmail;
         String storedCode = (String) redisTemplate.opsForValue().get(key);
-        if (storedCode == null) {
-            return SaResult.error("验证码已过期，请重新获取！");
-        }
-        if (!storedCode.equals(code)) {
-            return SaResult.error("验证码错误！");
+        if (storedCode == null || !storedCode.equals(code)) {
+            return SaResult.error("邮箱或验证码错误");
         }
         redisTemplate.delete(key);// 验证成功后删除Redis中的验证码
         StpUtil.login(user1.getId());
@@ -109,10 +121,9 @@ public class UserController {
         }
         try {
             Date dateTime = dateTimeUtil.getCurrentTime();
-            // 使用Base64编码
-            String base64Text = SaBase64Util.encode(password);
+            String encodedPassword = passwordService.encode(password);
             String accountDefault = "user_" + account;
-            User user = new User(null, accountDefault, account, base64Text, null, "defaultPicture.jpg", null, null, null, dateTime, Byte.valueOf("0"), "0", Byte.valueOf("0"), dateTime);
+            User user = new User(null, accountDefault, account, encodedPassword, null, "defaultPicture.jpg", null, null, null, dateTime, Byte.valueOf("0"), "0", Byte.valueOf("0"), dateTime);
             int rowsAffected = userService.insertUser(user);
             if (rowsAffected > 0) {
                 response.put("message", "注册成功");
@@ -138,17 +149,17 @@ public class UserController {
             response.put("success", false);
             return ResponseEntity.badRequest().body(response);
         }
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
         Date dateTime = dateTimeUtil.getCurrentTime();
-        String key = "email:code:" + email;
+        String key = "email:code:" + normalizedEmail;
         String storedCode = (String) redisTemplate.opsForValue().get(key);
-        if (storedCode == null) {
-            return ResponseEntity.ok("验证码已过期");
+        if (storedCode == null || !storedCode.equals(code)) {
+            response.put("message", "邮箱或验证码错误");
+            response.put("success", false);
+            return ResponseEntity.badRequest().body(response);
         }
-        if (!storedCode.equals(code)) {
-            return ResponseEntity.badRequest().body("验证码错误");
-        }
-        String accountDefault = "user_" + email.indexOf("@");
-        User user = new User(null, accountDefault, null, null, email, null, null, null, null, dateTime, Byte.valueOf("0"), null, Byte.valueOf("0"), dateTime);
+        String accountDefault = "user_" + normalizedEmail.indexOf("@");
+        User user = new User(null, accountDefault, null, null, normalizedEmail, null, null, null, null, dateTime, Byte.valueOf("0"), null, Byte.valueOf("0"), dateTime);
         try {
             userService.insertUser(user);
         } catch (RuntimeException e) {
@@ -174,9 +185,15 @@ public class UserController {
     public ResponseEntity updateUser(@RequestBody User user, @RequestParam(value = "oldPassword", required = false) String oldPassword) {
         Map<String, Object> response = new HashMap<>();
         Long id = StpUtil.getLoginIdAsLong();
-        if (oldPassword.equals(SaBase64Util.decode(userService.getUserById(id).getPassword()))) {
+        User existingUser = userService.getUserById(id);
+        if (oldPassword != null && existingUser != null && passwordService.matches(oldPassword, existingUser.getPassword())) {
             if (user.getPassword() != null) {
-                user.setPassword(SaBase64Util.encode(user.getPassword()));
+                if (!Validator.isValidPassword(user.getPassword())) {
+                    response.put("message", "新密码格式不正确");
+                    response.put("success", false);
+                    return ResponseEntity.badRequest().body(response);
+                }
+                user.setPassword(passwordService.encode(user.getPassword()));
             }
             user.setId(id);
             userService.update(user);

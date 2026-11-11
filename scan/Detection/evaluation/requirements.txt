@@ -1,0 +1,7 @@
+# Install alongside ../requirements-runtime.txt; no cloud services required.
+psutil>=5.9,<8
+imageio-ffmpeg>=0.5,<1
+# Live HTTP verification script only:
+requests>=2.31,<3
+# Optional browser smoke test only:
+# playwright>=1.40

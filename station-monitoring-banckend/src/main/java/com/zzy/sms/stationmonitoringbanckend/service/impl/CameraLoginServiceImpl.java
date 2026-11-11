@@ -38,6 +38,11 @@ public class CameraLoginServiceImpl implements CameraLoginService {
     public static NetSDKLib netsdk = NetSDKLib.NETSDK_INSTANCE;
     public Map<Long, NetSDKLib.LLong> loggedCameraMap = new HashMap<>();
 
+    /** 离线摄像头登录失败冷却期：5 分钟内不再重试（毫秒） */
+    private static final long LOGIN_FAIL_COOLDOWN_MS = 5 * 60 * 1000L;
+    /** 记录每台摄像头最后一次登录失败的时间戳，用于冷却判断 */
+    private final Map<Long, Long> lastFailTimeMap = new ConcurrentHashMap<>();
+
     private final DisConnect disConnect = new DisConnect();
     private final HaveReConnect haveReConnect = new HaveReConnect();
     private volatile boolean sdkInitialized = false; // SDK 初始化状态
@@ -97,7 +102,7 @@ public class CameraLoginServiceImpl implements CameraLoginService {
                 log.info("自动重连回调已设置");
 
                 NetSDKLib.NET_PARAM netParam = new NetSDKLib.NET_PARAM();
-                netParam.nConnectTime = 20000; // 连接超时时间 20 秒
+                netParam.nConnectTime = 3000; // 连接超时时间 3 秒（离线摄像头快速失败，避免拖慢启动）
                 netParam.nGetConnInfoTime = 3000;
                 netParam.nGetDevInfoTime = 3000;
                 netsdk.CLIENT_SetNetworkParam(netParam);
@@ -127,21 +132,29 @@ public class CameraLoginServiceImpl implements CameraLoginService {
             gunCameraList.addAll(latestGunCameraList);
         }
 
-        // 初始化新接入的球机
+        long now = System.currentTimeMillis();
+
+        // 初始化新接入的球机（处于登录失败冷却期的跳过）
         for (BallCamera camera : latestBallCameraList) {
-            if (!loggedCameraMap.containsKey(camera.getId())) {
+            if (!loggedCameraMap.containsKey(camera.getId()) && !inCooldown(camera.getId(), now)) {
                 log.info("检测到新球机: {}，尝试初始化", camera.getIp());
                 initAndLoginBallCamera(camera);
             }
         }
 
-        // 初始化新接入的枪机
+        // 初始化新接入的枪机（处于登录失败冷却期的跳过）
         for (GunCamera camera : latestGunCameraList) {
-            if (!loggedCameraMap.containsKey(camera.getId())) {
+            if (!loggedCameraMap.containsKey(camera.getId()) && !inCooldown(camera.getId(), now)) {
                 log.info("检测到新枪机: {}，尝试初始化", camera.getIp());
                 initAndLoginGunCamera(camera);
             }
         }
+    }
+
+    /** 判断摄像头是否处于登录失败冷却期内 */
+    private boolean inCooldown(Long cameraId, long now) {
+        Long lastFail = lastFailTimeMap.get(cameraId);
+        return lastFail != null && (now - lastFail) < LOGIN_FAIL_COOLDOWN_MS;
     }
 
     @Override
@@ -213,9 +226,13 @@ public class CameraLoginServiceImpl implements CameraLoginService {
         NetSDKLib.LLong m_hLoginHandle = netsdk.CLIENT_LoginWithHighLevelSecurity(pstInParam, pstOutParam);
 
         if (m_hLoginHandle.longValue() == 0) {
-            log.info("登录摄像机 ip = {} Port = {} 失败. 失败原因为：{}.", ip, port, ToolKits.getErrorCodePrint());
+            // 登录失败：记录失败时间戳进入冷却期，日志降级为 debug 避免假摄像头刷屏
+            lastFailTimeMap.put(id, System.currentTimeMillis());
+            log.debug("登录摄像机 ip = {} Port = {} 失败. 失败原因为：{}.", ip, port, ToolKits.getErrorCodePrint());
             return false;
         } else {
+            // 登录成功：清除冷却标记
+            lastFailTimeMap.remove(id);
             log.info("登录摄像机 ip = {} Port = {} 成功.", ip, port);
             loggedCameraMap.put(id, m_hLoginHandle);
             return true;
@@ -333,6 +350,77 @@ public class CameraLoginServiceImpl implements CameraLoginService {
     @Override
     public int countOnlineCameras() {
         return loggedCameraMap.size();
+    }
+
+    // PTZ 控制指令映射：前端指令码 -> 大华 SDK CLIENT_DHPTZControlEx 命令值（DHNetSDK 标准定义 0x01~0x0E）
+    private static final Map<String, Integer> PTZ_COMMAND_MAP = new HashMap<>();
+
+    static {
+        PTZ_COMMAND_MAP.put("Up", 0x01);          // 上
+        PTZ_COMMAND_MAP.put("Down", 0x02);        // 下
+        PTZ_COMMAND_MAP.put("Left", 0x03);        // 左
+        PTZ_COMMAND_MAP.put("Right", 0x04);       // 右
+        PTZ_COMMAND_MAP.put("LeftUp", 0x05);      // 上左
+        PTZ_COMMAND_MAP.put("RightUp", 0x06);     // 上右
+        PTZ_COMMAND_MAP.put("LeftDown", 0x07);    // 下左
+        PTZ_COMMAND_MAP.put("RightDown", 0x08);   // 下右
+        PTZ_COMMAND_MAP.put("ZoomTele", 0x09);    // 变倍+（拉近）
+        PTZ_COMMAND_MAP.put("ZoomWide", 0x0a);    // 变倍-（拉远）
+        PTZ_COMMAND_MAP.put("FocusNear", 0x0b);   // 聚焦+
+        PTZ_COMMAND_MAP.put("FocusFar", 0x0c);    // 聚焦-
+        PTZ_COMMAND_MAP.put("IrisLarge", 0x0d);   // 光圈+
+        PTZ_COMMAND_MAP.put("IrisSmall", 0x0e);   // 光圈-
+    }
+
+    // 大华 NET_PTZ_ControlType 预置点相关指令码
+    private static final int PTZ_GOTO_PRESET = 0x81;  // 跳转预置点
+    private static final int PTZ_SET_PRESET  = 0x82;  // 添加/更新预置点
+    private static final int PTZ_DEL_PRESET  = 0x83;  // 删除预置点
+
+    @Override
+    public boolean gotoPreset(Long cameraId, int presetId, int channel) {
+        NetSDKLib.LLong handle = loggedCameraMap.get(cameraId);
+        if (handle == null || handle.longValue() == 0) {
+            log.warn("跳转预置点失败: 摄像头 {} 未登录或离线", cameraId);
+            return false;
+        }
+        if (presetId < 0 || presetId > 255) {
+            presetId = 1;
+        }
+        // CLIENT_DHPTZControlEx(handle, channel, GotoPreset, 0, 0, presetId, 0)
+        // nPresetID=presetId 指定跳转到第几个预置点
+        boolean ok = netsdk.CLIENT_DHPTZControlEx(handle, channel, PTZ_GOTO_PRESET, 0, 0, presetId, 0);
+        if (ok) {
+            log.info("摄像头 {} 跳转预置点 {} 指令下发成功", cameraId, presetId);
+        } else {
+            log.error("跳转预置点失败: cameraId={}, presetId={}, 错误={}",
+                    cameraId, presetId, ToolKits.getErrorCodePrint());
+        }
+        return ok;
+    }
+
+    @Override
+    public boolean ptzControl(Long cameraId, String code, boolean stop, int speed, int channel) {
+        NetSDKLib.LLong handle = loggedCameraMap.get(cameraId);
+        if (handle == null || handle.longValue() == 0) {
+            log.warn("PTZ 控制失败: 摄像头 {} 未登录或离线", cameraId);
+            return false;
+        }
+        Integer command = PTZ_COMMAND_MAP.get(code);
+        if (command == null) {
+            log.warn("PTZ 控制失败: 未知指令 {}", code);
+            return false;
+        }
+        if (speed < 1 || speed > 8) {
+            speed = 5;
+        }
+        // dwStop: 0=开始运动, 1=停止运动; dwSpeed: 1-8; nPresetID 非预置点指令传 0
+        boolean ok = netsdk.CLIENT_DHPTZControlEx(handle, channel, command, stop ? 1 : 0, speed, 0, 0);
+        if (!ok) {
+            log.error("PTZ 指令下发失败: cameraId={}, code={}, stop={}, 错误={}",
+                    cameraId, code, stop, ToolKits.getErrorCodePrint());
+        }
+        return ok;
     }
 
     @Override

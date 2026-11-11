@@ -1,0 +1,862 @@
+<template>
+  <div id="home" :class="{ 'dashboard-route': route.path === '/' }">
+    <nav>
+      <el-menu
+          :default-active="route.path"
+          class="el-menu-demo"
+          mode="horizontal"
+          :background-color="route.path === '/' ? '#061a33' : '#fff'"
+          :text-color="route.path === '/' ? '#bad8e5' : '#303133'"
+          :active-text-color="route.path === '/' ? '#62e3ef' : '#409eff'"
+          :ellipsis="false"
+          @select="handleSelect"
+      >
+        <el-menu-item index="/">
+          <div class="img-box" @click.stop="refreshHome">
+            <div class="img">
+              <img
+                  style="width: 28px"
+                  alt="车站视频管理系统"
+                  src="../assets/logo.png"
+              />
+            </div>
+            <!--            <div class="title">车站监控系统</div>-->
+            <!--            <div class="title">车站视频管理系统</div>-->
+            <!--            <div class="title">车站异物检测系统</div>-->
+            <div class="title">视界巡警</div>
+
+          </div>
+        </el-menu-item>
+        <div class="avatar-box">
+          <img v-if="imageUrl" :src="imageUrl" class="avatar"/>
+        </div>
+        <el-sub-menu index="1">
+          <template #title>{{ store.state.user.userInfo.username }}</template>
+          <el-menu-item index="/userProfile">个人中心</el-menu-item>
+          <el-menu-item index="logout">退出登录</el-menu-item>
+        </el-sub-menu>
+      </el-menu>
+    </nav>
+    <div class="main-container">
+      <!-- 侧边栏 -->
+      <Sidebar></Sidebar>
+      <!-- 内容区域 -->
+      <div class="content">
+        <router-view v-slot="{ Component }">
+          <component :is="Component" v-if="Component"/>
+          <div v-else class="cameraInfo">
+            <main class="dashboard" aria-label="铁路站场监控总览">
+              <header class="dashboard-heading">
+                <div>
+                  <span class="dashboard-eyebrow">RAIL VISION GUARD / OPERATIONS OVERVIEW</span>
+                  <h1>铁路站场监控总览</h1>
+                  <p>设备接入、告警趋势与工作流程</p>
+                </div>
+                <div class="dashboard-heading-right">
+                  <span class="live-dot"></span>
+                  <span>本地系统数据</span>
+                  <span class="heading-separator"></span>
+                  <span>{{ dashboardDate }}</span>
+                </div>
+              </header>
+
+              <section class="status-rail" aria-label="设备状态概览">
+                <div class="status-token total">
+                  <span class="status-icon"><el-icon><Camera /></el-icon></span>
+                  <div><span class="status-label">接入摄像头</span><strong>{{ cameras.length }}</strong><small>路设备</small></div>
+                </div>
+                <div class="status-token online">
+                  <span class="status-icon"><span class="icon-disc"></span></span>
+                  <div><span class="status-label">在线设备</span><strong>{{ onlineCount }}</strong><small>路在线</small></div>
+                </div>
+                <div class="status-token offline">
+                  <span class="status-icon"><el-icon><Warning /></el-icon></span>
+                  <div><span class="status-label">离线设备</span><strong>{{ offlineCount }}</strong><small>路需排查</small></div>
+                </div>
+                <div class="status-token alarms">
+                  <span class="status-icon"><el-icon><Bell /></el-icon></span>
+                  <div><span class="status-label">近七日摄像头告警</span><strong>{{ sevenDayAlarmCount }}</strong><small>条记录</small></div>
+                </div>
+              </section>
+
+              <div class="dashboard-grid">
+                <section class="dash-module device-module" aria-labelledby="device-heading">
+                  <div class="module-head">
+                    <div><span class="module-index">01 / DEVICES</span><h2 id="device-heading">设备接入状态</h2></div>
+                    <button class="module-link" @click="router.push('/cameramanagement')">设备管理 <span aria-hidden="true">›</span></button>
+                  </div>
+                  <div class="device-overview">
+                    <div class="camera-orbit" aria-hidden="true">
+                      <span class="orbit outer"></span><span class="orbit inner"></span>
+                      <el-icon><Camera /></el-icon>
+                    </div>
+                    <div class="device-hero-copy">
+                      <span>当前接入</span>
+                      <div class="device-big-number"><strong>{{ cameras.length }}</strong><small>路</small></div>
+                      <p>设备状态来自摄像头列表</p>
+                    </div>
+                  </div>
+                  <div class="device-mini-stats">
+                    <div><span class="stat-light online-light"></span><span>在线</span><strong>{{ onlineCount }}</strong></div>
+                    <div><span class="stat-light offline-light"></span><span>离线</span><strong>{{ offlineCount }}</strong></div>
+                  </div>
+                  <div class="device-list-title">接入设备 <span>{{ cameras.length }} 路</span></div>
+                  <div v-if="displayedData.length" class="device-list">
+                    <button v-for="camera in displayedData.slice(0, 5)" :key="camera.id" class="device-row" @click="router.push('/monitoringscreen')">
+                      <span class="device-row-icon"><el-icon><Camera /></el-icon></span>
+                      <span class="device-row-name">{{ camera.name || ('摄像头 ' + camera.id) }}</span>
+                      <span class="device-row-status" :class="String(camera.status) === '0' ? 'is-online' : 'is-offline'">
+                        {{ String(camera.status) === '0' ? '在线' : '离线' }}
+                      </span>
+                      <span class="row-chevron">›</span>
+                    </button>
+                  </div>
+                  <div v-else class="module-empty">暂无接入设备，前往设备管理添加。</div>
+                </section>
+
+                <section class="dash-module trend-module" aria-labelledby="trend-heading">
+                  <div class="module-head">
+                    <div><span class="module-index">02 / EVENT TREND</span><h2 id="trend-heading">近七日摄像头告警趋势</h2></div>
+                    <span class="module-caption">按日统计 · 条</span>
+                  </div>
+                  <div class="trend-summary">
+                    <div><small>七日总数</small><strong>{{ sevenDayAlarmCount }}</strong></div>
+                    <div><small>统计口径</small><span>摄像头告警记录</span></div>
+                  </div>
+                  <div ref="pieChart" class="trend-chart" role="img" aria-label="近七日摄像头告警趋势图"></div>
+                  <div class="trend-foot"><span class="legend-dot"></span> 摄像头告警 <span class="trend-foot-note">数据由系统接口更新</span></div>
+                </section>
+
+                <section class="dash-module workflow-module" aria-labelledby="workflow-heading">
+                  <div class="module-head">
+                    <div><span class="module-index">03 / WORKFLOW</span><h2 id="workflow-heading">监控工作流程</h2></div>
+                    <span class="module-caption">选择环节进入对应页面</span>
+                  </div>
+                  <div class="workflow-steps">
+                    <button @click="router.push('/monitoringscreen')"><span class="workflow-number">01</span><span class="workflow-icon"><el-icon><Monitor /></el-icon></span><strong>实时预览</strong><small>查看设备画面</small></button>
+                    <span class="workflow-arrow">›</span>
+                    <button @click="router.push('/imageDetection')"><span class="workflow-number">02</span><span class="workflow-icon"><el-icon><Aim /></el-icon></span><strong>智能检测</strong><small>查看目标与规则</small></button>
+                    <span class="workflow-arrow">›</span>
+                    <button @click="router.push('/alarm')"><span class="workflow-number">03</span><span class="workflow-icon"><el-icon><Bell /></el-icon></span><strong>告警核查</strong><small>查看事件与截图</small></button>
+                    <span class="workflow-arrow">›</span>
+                    <button @click="router.push('/video')"><span class="workflow-number">04</span><span class="workflow-icon"><el-icon><VideoCamera /></el-icon></span><strong>录像回放</strong><small>追溯录像证据</small></button>
+                  </div>
+                </section>
+
+                <section class="dash-module distribution-module" aria-labelledby="distribution-heading">
+                  <div class="module-head">
+                    <div><span class="module-index">04 / STATUS</span><h2 id="distribution-heading">设备状态分布</h2></div>
+                    <span class="module-caption">当前快照</span>
+                  </div>
+                  <div ref="barChart" class="distribution-chart" role="img" aria-label="在线与离线设备数量图"></div>
+                </section>
+              </div>
+              <footer class="dashboard-foot">设备与告警数据取自当前系统 · 人工核查仍以原始画面和记录为准</footer>
+            </main>
+          </div>
+        </router-view>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import {ref, computed, onMounted, onActivated, onDeactivated, watch, onUnmounted, nextTick, reactive} from 'vue'
+import Sidebar from './Sidebar.vue'
+import {logout} from '@/http/api/user.js'
+import {useRoute, useRouter} from 'vue-router'
+import {getAvatar} from '@/http/api/user'
+import {getAllCameras, countOnlineCameras, countOfflineCameras} from '@/http/api/camera.js'
+import {getCameraAlarmByDay} from '@/http/api/camerAlarm.js'
+import {useStore} from 'vuex';
+import * as echarts from 'echarts';
+import {preloadCorePages} from '@/utils/preloadCorePages';
+import {subscribeCameraStatus} from '@/services/cameraStatus';
+import {
+  Camera,
+  Warning,
+  Bell,
+  Monitor,
+  Aim,
+  VideoCamera,
+} from '@element-plus/icons-vue'
+
+
+//登出
+const store = useStore();
+const router = useRouter();
+const route = useRoute();
+const handleSelect = (index) => {
+  if (index === 'logout') logOut();
+  else if (index !== route.path) router.push(index);
+};
+const logOut = async () => {
+  try {
+    await logout(store.state.user.userInfo.id);
+  } catch (error) {
+    console.warn('退出登录请求失败，已清除本地会话', error);
+  } finally {
+    localStorage.removeItem('token');
+    await store.dispatch('user/logout');
+    await router.replace('/login');
+  }
+}
+//头像
+const imageUrl = ref('');
+const fetchAvatar = async (filename) => {
+  if (imageUrl.value) {
+    URL.revokeObjectURL(imageUrl.value);
+    imageUrl.value = '';
+  }
+  if (!filename) return;
+  try {
+    const response = await getAvatar(filename);
+    if (response.data instanceof Blob) {
+      imageUrl.value = URL.createObjectURL(response.data);
+    }
+  } catch (error) {
+    console.warn('头像加载失败', error);
+  }
+}
+watch(() => store.state.user.userInfo.avatar, fetchAvatar, {immediate: true});
+
+//表格数据
+const cameras = reactive([]);
+const displayedData = reactive([]) // 初始数据
+const getCameraData = async () => {
+  try {
+    const response = await getAllCameras();
+    cameras.splice(0, cameras.length, ...response.data);
+    displayedData.splice(0, displayedData.length, ...cameras);
+  } catch (error) {
+    console.error('获取摄像头列表失败:', error);
+  }
+}
+
+const onlineCount = ref(0)
+const offlineCount = ref(0)
+const getCountOnlineAndOfflineCameras = async () => {
+  const response = await countOnlineCameras();
+  const response2 = await countOfflineCameras();
+  onlineCount.value = response.data;
+  offlineCount.value = response2.data;
+
+  updateCharts();
+}
+let dashboardTimer = null;
+let dashboardStarting = false;
+
+
+//统计图
+const barChart = ref();
+const pieChart = ref();
+let barInstance = null;
+let pieInstance = null;
+
+// 添加警报数据存储
+const cameraAlarms = reactive([]);
+const dashboardDate = new Date().toLocaleDateString('zh-CN', {year:'numeric', month:'2-digit', day:'2-digit'});
+const sevenDayAlarmCount = computed(() => cameraAlarms.reduce((sum, item) => sum + (Number(item.alarm_count) || 0), 0));
+
+// 获取最近7天的摄像头警报和危险警报数据
+const getAlarmStatisticsData = async () => {
+  try {
+    // 获取摄像头警报数据
+    const cameraAlarmResponse = await getCameraAlarmByDay();
+    if (cameraAlarmResponse.data) {
+      cameraAlarms.splice(0, cameraAlarms.length, ...(Array.isArray(cameraAlarmResponse.data.data) ? cameraAlarmResponse.data.data : []));
+    }
+
+    // 更新图表
+    updateCharts();
+  } catch (error) {
+    console.error("获取警报统计数据失败:", error);
+  }
+};
+
+// 获取最近7天的日期数组
+const getLast7Days = () => {
+  const dates = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const formattedDate = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+    dates.push(formattedDate);
+  }
+  return dates;
+};
+
+// 根据日期获取警报数量，如果没有则返回0
+const getAlarmCountByDate = (alarms, date) => {
+  const alarm = alarms.find(a => a.alarm_date === date);
+  return alarm ? alarm.alarm_count : 0;
+};
+
+// 窗口/容器变化时重新调整图表大小
+const handleResize = () => {
+  if (barInstance) barInstance.resize();
+  if (pieInstance) pieInstance.resize();
+};
+
+//销毁图表实例
+const disposeCharts = () => {
+  if (barInstance) {
+    echarts.dispose(barInstance);
+    barInstance = null;
+  }
+  if (pieInstance) {
+    echarts.dispose(pieInstance);
+    pieInstance = null;
+  }
+};
+
+// 初始化 ECharts
+const initCharts = async () => {
+  await nextTick(); // 确保 DOM 渲染完成
+  if (!barChart.value || !pieChart.value) {
+    console.error('图表容器未找到');
+    return;
+  }
+  // 销毁旧实例
+  disposeCharts();
+  // 初始化新实例
+  barInstance = echarts.init(barChart.value);
+  pieInstance = echarts.init(pieChart.value);
+  // 添加错误处理
+  if (!barInstance || !pieInstance) {
+    throw new Error('图表初始化失败');
+  } else {
+    console.log('图表初始化成功!!');
+  }
+  // 更新图表数据
+  updateCharts();
+};
+
+
+let unsubscribeCameraStatus = null;
+
+const subscribeToCameraStatus = () => {
+  if (unsubscribeCameraStatus) return;
+  unsubscribeCameraStatus = subscribeCameraStatus(({type, updates}) => {
+    if (type === 'update') updateCameraStatus(updates);
+    // 建立或恢复连接后先取一份完整快照，避免错过断线期间的状态变更。
+    if (type === 'connected') {
+      Promise.allSettled([getCameraData(), getCountOnlineAndOfflineCameras()]);
+    }
+  });
+};
+
+// 更新摄像头状态
+const updateCameraStatus = (updates) => {
+  const items = Array.isArray(updates) ? updates : [updates];
+  items.forEach(updatedCamera => {
+    if (!updatedCamera || updatedCamera.id == null) return;
+    const index = cameras.findIndex(c => Number(c.id) === Number(updatedCamera.id));
+    if (index !== -1) cameras[index].status = updatedCamera.status;
+    const displayedIndex = displayedData.findIndex(c => Number(c.id) === Number(updatedCamera.id));
+    if (displayedIndex !== -1) displayedData[displayedIndex].status = updatedCamera.status;
+  });
+  onlineCount.value = cameras.filter(camera => String(camera.status) === '0').length;
+  offlineCount.value = cameras.length - onlineCount.value;
+  updateCharts();
+};
+
+
+// 更新图表数据
+const updateCharts = () => {
+  if (!barInstance || !pieInstance) return;
+  const last7Days = getLast7Days();
+  const alarmData = last7Days.map(date => Number(getAlarmCountByDate(cameraAlarms, date)) || 0);
+  const textColor = '#a9c8d7';
+  const lineColor = 'rgba(91, 170, 202, .24)';
+  barInstance.setOption({
+    backgroundColor: 'transparent',
+    animationDuration: 450,
+    grid: {left: 20, right: 44, top: 14, bottom: 22, containLabel: true},
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {type: 'shadow'},
+      backgroundColor: '#092a46',
+      borderColor: '#3186a8',
+      textStyle: {color: '#effbff'}
+    },
+    xAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLabel: {color: textColor, fontSize: 11},
+      splitLine: {lineStyle: {color: lineColor}},
+      axisLine: {show: false},
+      axisTick: {show: false}
+    },
+    yAxis: {
+      type: 'category',
+      data: ['离线', '在线'],
+      axisLabel: {color: textColor, fontSize: 12},
+      axisLine: {show: false},
+      axisTick: {show: false}
+    },
+    series: [{
+      type: 'bar',
+      barWidth: 13,
+      data: [
+        {value: offlineCount.value, itemStyle: {color: '#ef7772'}},
+        {value: onlineCount.value, itemStyle: {color: new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#137ca8'},{offset:1,color:'#4ee4ef'}])}}
+      ],
+      label: {show: true, position: 'right', color: '#e8faff', fontWeight: 700},
+      itemStyle: {borderRadius: [0, 5, 5, 0]}
+    }]
+  });
+  pieInstance.setOption({
+    backgroundColor: 'transparent',
+    animationDuration: 450,
+    grid: {left: 18, right: 22, top: 14, bottom: 22, containLabel: true},
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {type: 'line'},
+      backgroundColor: '#092a46',
+      borderColor: '#3186a8',
+      textStyle: {color: '#effbff'},
+      valueFormatter: value => value + ' 条'
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: last7Days.map(date => date.slice(5)),
+      axisLine: {lineStyle: {color: lineColor}},
+      axisLabel: {color: textColor, fontSize: 11},
+      axisTick: {show: false}
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLabel: {color: textColor, fontSize: 11},
+      splitLine: {lineStyle: {color: lineColor, type: 'dashed'}},
+      axisLine: {show: false},
+      axisTick: {show: false}
+    },
+    series: [{
+      name: '摄像头告警',
+      type: 'line',
+      smooth: .15,
+      symbol: 'circle',
+      symbolSize: 7,
+      data: alarmData,
+      itemStyle: {color: '#83f2f5', borderColor: '#0b3655', borderWidth: 2},
+      lineStyle: {color: '#37d8ec', width: 2.5},
+      areaStyle: {color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(32,203,236,.28)'},{offset:1,color:'rgba(32,203,236,0)'}])},
+      emphasis: {focus: 'series'}
+    }]
+  });
+};
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+  preloadCorePages()
+})
+
+const stopDashboard = () => {
+  if (dashboardTimer) {
+    clearInterval(dashboardTimer);
+    dashboardTimer = null;
+  }
+  if (unsubscribeCameraStatus) {
+    unsubscribeCameraStatus();
+    unsubscribeCameraStatus = null;
+  }
+  disposeCharts();
+};
+
+const startDashboard = async () => {
+  if (route.path !== '/' || dashboardTimer || dashboardStarting) return;
+  dashboardStarting = true;
+  try {
+    await nextTick();
+    await Promise.allSettled([getCameraData(), getCountOnlineAndOfflineCameras(), getAlarmStatisticsData()]);
+    if (route.path !== '/' || !barChart.value || !pieChart.value) return;
+    await initCharts();
+    subscribeToCameraStatus();
+    dashboardTimer = setInterval(() => {
+      Promise.allSettled([getCameraData(), getCountOnlineAndOfflineCameras(), getAlarmStatisticsData()]);
+    }, 10000);
+  } finally {
+    dashboardStarting = false;
+  }
+};
+
+watch(() => route.path, path => {
+  if (path === '/') startDashboard();
+  else stopDashboard();
+}, {immediate: true});
+onActivated(startDashboard);
+onDeactivated(stopDashboard);
+onUnmounted(() => {
+  stopDashboard();
+  window.removeEventListener('resize', handleResize);
+  if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
+});
+
+const refreshHome = () => {
+  router.push('/');
+}
+
+</script>
+
+<style scoped>
+.el-menu--horizontal > .el-menu-item:nth-child(1) {
+  margin-right: auto;
+}
+
+.el-menu--horizontal {
+  --el-menu-horizontal-height: 6vh;
+  box-shadow: 0 2px 10px rgba(0, 123, 255, 0.1);
+}
+
+#home {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+nav {
+  flex: 0 0 auto;
+}
+
+.main-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  background-color: #f0f8ff;
+}
+
+.content {
+  position: relative;
+  display: flex;
+  flex-grow: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.avatar {
+  position: absolute;
+  height: 36px;
+  width: 36px;
+  object-fit: cover;
+  border-radius: 50%;
+  top: 2px;
+  right: 150px;
+  border: 2px solid #a7d7f9;
+  box-shadow: 0 2px 5px rgba(0, 123, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.avatar:hover {
+  transform: scale(1.05);
+}
+
+.cameraInfo {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  background: #04162d;
+}
+.dashboard {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  padding: 22px 28px 12px;
+  color: #edfaff;
+  background:
+    linear-gradient(rgba(48, 155, 193, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(48, 155, 193, .045) 1px, transparent 1px),
+    radial-gradient(ellipse at 52% 38%, #0a3455 0%, #051f3c 48%, #04152d 100%);
+  background-size: 48px 48px, 48px 48px, auto;
+}
+.dashboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 78px;
+  padding: 0 0 15px;
+  border-bottom: 1px solid rgba(91, 190, 221, .42);
+}
+.dashboard-eyebrow, .module-index {
+  display: block;
+  color: #61cce7;
+  font: 700 10px/1.3 "Segoe UI", sans-serif;
+  letter-spacing: 2px;
+}
+.dashboard-heading h1 {
+  margin: 3px 0 4px;
+  color: #f5fdff;
+  font-size: clamp(24px, 1.85vw, 34px);
+  line-height: 1.24;
+  letter-spacing: 1px;
+  font-weight: 800;
+}
+.dashboard-heading p {
+  margin: 0;
+  color: #91b7c9;
+  font-size: 12px;
+}
+.dashboard-heading-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #b4d9e7;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.live-dot, .stat-light, .legend-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #44e0cf;
+  box-shadow: 0 0 10px rgba(68,224,207,.72);
+}
+.heading-separator {
+  height: 16px;
+  border-left: 1px solid rgba(114,195,220,.35);
+  margin: 0 6px;
+}
+.status-rail {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 14px;
+  margin: 17px 0 19px;
+}
+.status-token {
+  --token: #42d8e9;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 90px;
+  padding: 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--token) 62%, transparent);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+  background: linear-gradient(180deg, rgba(29,87,121,.72), rgba(7,35,63,.82));
+  box-shadow: inset 0 1px rgba(172,239,252,.2);
+}
+.status-token::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; width: 56%; height: 2px;
+  background: linear-gradient(90deg,var(--token),transparent);
+  box-shadow: 0 0 10px var(--token);
+}
+.status-token.offline { --token: #ed7972; }
+.status-token.alarms { --token: #ffbf56; }
+.status-token.total { --token: #63c8f1; }
+.status-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 46px;
+  height: 46px;
+  border: 1px solid var(--token);
+  border-radius: 50%;
+  color: var(--token);
+  background: rgba(5,25,47,.7);
+  box-shadow: inset 0 0 0 5px rgba(26,114,149,.2), 0 0 14px rgba(0,149,199,.17);
+  font-size: 23px;
+}
+.icon-disc {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: #42e3cf; box-shadow: 0 0 14px #42e3cf;
+}
+.status-token>div { display:flex;align-items:baseline;gap:7px;flex-wrap:wrap; }
+.status-label { flex-basis:100%; color:#bedde8; font-size:12px; font-weight:600; }
+.status-token strong { color:#f4fcff; font: italic 800 29px/1 "Segoe UI",sans-serif; }
+.status-token small { color:#87b8c8;font-size:11px; }
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(300px,.8fr) minmax(500px,1.5fr);
+  grid-template-rows: 270px 180px 132px;
+  gap: 13px 16px;
+}
+.dash-module {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  padding: 17px 20px;
+  background: linear-gradient(160deg,rgba(16,58,91,.63),rgba(4,27,52,.38) 65%);
+  border-top: 1px solid rgba(66,192,226,.61);
+  border-left: 1px solid rgba(43,147,184,.26);
+  border-bottom: 1px solid rgba(43,147,184,.18);
+}
+.dash-module::before {
+  content:"";
+  position:absolute;
+  top:-1px;left:0;
+  width:100px;height:2px;
+  background:#56e1f3;
+  box-shadow:0 0 11px #2cc9f0;
+}
+.module-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  border-bottom:1px solid rgba(72,157,189,.25);
+  padding-bottom:9px;
+}
+.module-head h2 { margin:3px 0 0; color:#f4fcff;font-size:17px;font-weight:750; }
+.module-caption { color:#86b6c8;font-size:11px;white-space:nowrap; }
+.module-link {
+  border:0;
+  background:transparent;
+  color:#7ddfed;
+  font:600 12px "Microsoft YaHei",sans-serif;
+  cursor:pointer;
+}
+.module-link span { font-size:20px;margin-left:4px; }
+.module-link:hover { color:#e6ffff; }
+.device-module { grid-row:1 / 4; }
+.device-overview {
+  display:flex;align-items:center;gap:24px;
+  min-height:160px;
+  padding:14px 8px 8px;
+}
+.camera-orbit {
+  position:relative;
+  display:grid;
+  place-items:center;
+  flex:0 0 122px;
+  width:122px;height:122px;
+  border:1px solid #37d7ef;
+  border-radius:50%;
+  background:radial-gradient(circle at 46% 40%,#1c688f,#092e50 52%,#061d3b 72%);
+  box-shadow:0 0 0 7px rgba(24,164,209,.09),inset 0 0 25px rgba(38,196,230,.12);
+}
+.camera-orbit .orbit { position:absolute;border-radius:50%;pointer-events:none; }
+.camera-orbit .outer { inset:7px;border:1px dashed rgba(131,234,246,.57); }
+.camera-orbit .inner { inset:17px;border:1px solid rgba(111,215,234,.45); }
+.camera-orbit>.el-icon {
+  color:#d3f8ff;
+  font-size:51px;
+  filter:drop-shadow(0 4px 4px #00172d);
+}
+.device-hero-copy>span { color:#9bc6d6;font-size:12px; }
+.device-big-number { display:flex;align-items:baseline;gap:9px; }
+.device-big-number strong { color:#effdff;font:italic 800 57px/1.15 "Segoe UI",sans-serif; }
+.device-big-number small { color:#b4dce7;font-size:18px; }
+.device-hero-copy p { margin:4px 0 0;color:#7fb2c7;font-size:11px; }
+.device-mini-stats { display:flex;gap:16px;margin-bottom:15px; }
+.device-mini-stats>div {
+  flex:1;
+  display:flex;align-items:center;gap:8px;
+  padding:11px 12px;
+  background:rgba(13,63,94,.38);
+  border-bottom:1px solid rgba(63,177,211,.3);
+  color:#b0d2df;font-size:12px;
+}
+.device-mini-stats strong { margin-left:auto;color:#ebfbff;font:italic 800 20px "Segoe UI",sans-serif; }
+.offline-light { background:#ed7972;box-shadow:0 0 9px rgba(237,121,114,.62); }
+.device-list-title { display:flex;justify-content:space-between;color:#dceff6;font-size:12px;font-weight:700;margin-bottom:6px; }
+.device-list-title span { color:#7db1c5;font-weight:400; }
+.device-list { max-height:250px;overflow:auto;scrollbar-color:#397b9b transparent; }
+.device-row {
+  display:flex;align-items:center;gap:10px;
+  width:100%;min-height:44px;
+  padding:5px 6px;
+  border:0;border-top:1px solid rgba(59,141,176,.2);
+  color:#c9e9f3;background:transparent;
+  text-align:left;cursor:pointer;
+}
+.device-row:hover { background:rgba(26,110,147,.24); }
+.device-row-icon { display:grid;place-items:center;width:25px;height:25px;border:1px solid rgba(54,185,222,.45);color:#76ddec; }
+.device-row-name { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px; }
+.device-row-status { margin-left:auto;white-space:nowrap;font-size:11px;color:#83bbca; }
+.device-row-status::before { content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:2px; }
+.device-row-status.is-online { color:#54e0c7; }
+.device-row-status.is-offline { color:#ee817b; }
+.row-chevron { color:#6eaabd;font-size:20px; }
+.module-empty { padding:28px 0;color:#89b1c1;font-size:12px; }
+.trend-module { grid-column:2;grid-row:1; }
+.trend-summary { display:flex;gap:28px;align-items:baseline;padding:9px 0 0; }
+.trend-summary>div { display:flex;align-items:baseline;gap:8px; }
+.trend-summary small { color:#8db6c8;font-size:11px; }
+.trend-summary strong { color:#eaffff;font:italic 800 25px "Segoe UI",sans-serif; }
+.trend-summary span { color:#aad8e3;font-size:12px; }
+.trend-chart { width:100%;height:150px; }
+.trend-foot { display:flex;align-items:center;gap:6px;color:#a9d6e2;font-size:11px; }
+.legend-dot { background:#38d7e8;box-shadow:0 0 8px #38d7e8; }
+.trend-foot-note { margin-left:auto;color:#6e9db0; }
+.workflow-module { grid-column:2;grid-row:2; }
+.workflow-steps { display:flex;align-items:center;gap:4px;height:112px; }
+.workflow-steps button {
+  position:relative;flex:1;min-width:0;height:90px;
+  display:grid;grid-template-columns:37px 1fr;grid-template-rows:1fr 1fr;
+  align-items:center;column-gap:10px;
+  padding:16px 12px;
+  border:1px solid rgba(58,163,199,.3);
+  background:linear-gradient(145deg,rgba(22,83,117,.48),rgba(6,39,69,.3));
+  color:#e4f7fb;text-align:left;cursor:pointer;
+}
+.workflow-steps button:hover,.workflow-steps button:focus-visible {
+  border-color:#57dce9;background:rgba(31,104,137,.62);
+  outline:none;
+}
+.workflow-number { position:absolute;top:4px;right:7px;color:#6aaec7;font:10px "Segoe UI",sans-serif; }
+.workflow-icon { grid-row:1 / 3;display:grid;place-items:center;width:36px;height:36px;border:1px solid #2998bb;border-radius:50%;color:#73e2ee;font-size:17px; }
+.workflow-steps strong { align-self:end;font-size:12px;white-space:nowrap; }
+.workflow-steps small { align-self:start;margin-top:3px;color:#7facbf;font-size:10px;white-space:nowrap; }
+.workflow-arrow { color:#57d7e7;font-size:22px; }
+.distribution-module { grid-column:2;grid-row:3; }
+.distribution-module .module-head { padding-bottom:4px; }
+.distribution-module .module-head h2 { font-size:15px; }
+.distribution-chart { width:100%;height:82px; }
+.dashboard-foot {
+  display:flex;justify-content:flex-end;
+  padding:10px 0 0;color:#6d9eb4;font-size:11px;
+}
+#home.dashboard-route .main-container { background:#04162d; }
+#home.dashboard-route :deep(.sidebar),
+#home.dashboard-route :deep(.sidebar .el-menu) {
+  background:#061a33;
+  border-right-color:rgba(74,164,197,.25);
+}
+#home.dashboard-route :deep(.sidebar .el-menu-item),
+#home.dashboard-route :deep(.sidebar .el-sub-menu__title) { color:#a7ccdc; }
+#home.dashboard-route :deep(.sidebar .el-menu-item:hover),
+#home.dashboard-route :deep(.sidebar .el-sub-menu__title:hover) { background:#103b5d;color:#e3faff; }
+#home.dashboard-route :deep(.sidebar .el-menu-item.is-active) { color:#57e1ee;background:#0b3455; }
+#home.dashboard-route .el-menu--horizontal { border-bottom:1px solid rgba(74,164,197,.25); }
+#home.dashboard-route .img-box .title { color:#f0fcff; }
+@media (max-width:1100px) {
+  .dashboard-grid { grid-template-columns:minmax(270px,.8fr) minmax(440px,1.3fr); }
+  .status-token { padding:10px;gap:8px; }
+  .status-icon { flex-basis:38px;height:38px;font-size:19px; }
+  .workflow-steps button { padding:13px 7px;column-gap:5px; }
+  .workflow-steps small { display:none; }
+}
+@media (max-width:850px) {
+  .status-rail { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .dashboard-grid { display:block; }
+  .dash-module { margin-bottom:12px;min-height:160px; }
+  .device-module { min-height:410px; }
+  .trend-module { min-height:280px; }
+  .workflow-module { min-height:180px; }
+  .dashboard-heading-right { display:none; }
+}
+.img-box {
+  display: flex;
+}
+
+.img-box .img {
+  width: 28px;
+  position: relative;
+}
+
+.img-box .img img {
+  position: absolute;
+  top: 24%;
+}
+</style>

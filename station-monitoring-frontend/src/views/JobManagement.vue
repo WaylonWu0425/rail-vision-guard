@@ -374,7 +374,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { Search, Download } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getAllUser } from '@/http/api/user.js';
-import { getTaskList, createTask, getTaskById, updateTask, getTaskStep, getTaskAttachmentList, downloadAttachment, reviewFeedback, getTaskHistoryList, getAllTaskDetailHistory } from '@/http/api/task.js';
+import { getTaskList, createTask, getTaskById, updateTask, getTaskStep, getTaskAttachmentList, downloadAttachment, reviewFeedback, getAllTaskDetailHistory } from '@/http/api/task.js';
 import { getCurrentInstance } from 'vue';
 
 
@@ -964,28 +964,49 @@ onMounted(() => {
 .job-management-container {
   width: 100%;
   height: 100%;
-  padding: 2%;
+  min-height: 0;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #f3f7fc;
+  overflow: auto;
 }
 
 .page-title {
-  margin-bottom: 20px;
-  height: 4%;
-  font-size: 24px;
-  color: #409EFF;
+  margin: 0;
+  height: auto;
+  font-size: 23px;
+  font-weight: 700;
+  color: #15395d;
 }
 
 .action-bar {
-  height: 4%;
-  margin-bottom: 12px;
+  min-height: 60px;
+  height: auto;
+  margin: 0;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   width: 100%;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  border: 1px solid #dbe6f2;
+  border-radius: 10px;
+  background: #fff;
 }
 .list {
   width: 100%;
-  height: 80%;
+  flex: 1;
+  min-height: 420px;
+  height: auto;
+  border: 1px solid #dbe6f2;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px 16px 16px;
+  box-sizing: border-box;
 }
 .table {
   height: 100%;

@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "frontend": "http://localhost:8082",
+  "steps": [
+    "real account login and recognition route connected",
+    "missing file gives actionable validation",
+    "uploaded synthetic test image -> real best.pt inference -> result image and counts rendered (not an accuracy evaluation)",
+    "real AVI upload -> pause/resume -> all 68 frames processed -> preview and current-frame result rendered",
+    "workspace scrolls to lower detection results without stretching the video",
+    "explicit stop reaches stopped state",
+    "USB input UI available; no real device opened",
+    "network camera selection UI available; no RTSP stream opened",
+    "leaving route stops video task and releases capture"
+  ],
+  "pageErrors": []
+}

@@ -8,34 +8,11 @@
   </div>
 </template>
 
-<script setup>
-
-const debounce = (fn, delay) => {
-    let timer = null;
-    return function () {
-      let context = this;
-      let args = arguments;
-      clearTimeout(timer);
-      timer = setTimeout(function () {
-        fn.apply(context, args);
-      }, delay);
-    }
-  }
-   
-  const _ResizeObserver = window.ResizeObserver;
-  window.ResizeObserver = class ResizeObserver extends _ResizeObserver{
-    constructor(callback) {
-      callback = debounce(callback, 16);
-      super(callback);
-    }
-  }
-
-
-</script>
-
 <style>
 /* 全局样式 */
 :root {
+  --el-color-primary: #1976d2;
+  --el-color-primary-dark-2: #125ca7;
   --primary-color: #1976d2;
   --primary-light: #42a5f5;
   --primary-dark: #1565c0;
@@ -53,7 +30,7 @@ html, body {
 }
 
 #app {
-  font-family: 'Arial', sans-serif;
+  font-family: 'Noto Sans SC', 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -66,6 +43,19 @@ html, body {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 

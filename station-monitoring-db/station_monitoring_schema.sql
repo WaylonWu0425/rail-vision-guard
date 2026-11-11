@@ -347,8 +347,6 @@ CREATE TABLE `task_history`
 -- 12
 -- ----------------------------
 DROP TABLE IF EXISTS `user`;
-ALTER TABLE `user`
-    AUTO_INCREMENT = 1;
 CREATE TABLE `user`
 (
     `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT 'id',

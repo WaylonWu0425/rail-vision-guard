@@ -1,5 +1,6 @@
 <template>
   <div class="list">
+    <header class="ops-page-header"><div><span class="ops-eyebrow">USER ADMINISTRATION / 权限管理</span><h1>用户管理</h1><p>查看用户状态并维护系统使用权限。</p></div></header>
     <div class="search">
       <div class="search-box">
         <el-form-item label="用户账号" :label-width="formLabelWidth">
@@ -217,4 +218,14 @@ onMounted(() => {
   margin: 0 1% 1% 1%;
   background-color: #fff;
 }
+
+.ops-page-header { flex:0 0 auto;min-height:80px;margin-bottom:12px;padding:6px 6px 14px;border-bottom:1px solid #cfdeeb; }
+.ops-eyebrow { color:#157da6;font-size:11px;letter-spacing:1.4px;font-weight:700; }
+.ops-page-header h1 { margin:4px 0 2px;color:#153b5b;font-size:24px;line-height:1.2; }
+.ops-page-header p { margin:0;color:#6e879a;font-size:12px; }
+
+.list { min-height:0;padding:16px;gap:12px;background:#f2f7fb; }
+.search { flex:0 0 auto;width:100%;height:auto;min-height:66px;margin:0;padding:12px 16px;border-left:3px solid #54afcf;border-radius:5px;background:#fff; }
+.camera-list { flex:1;min-height:0;overflow:auto;margin:0;padding:0;background:#fff;border-top:2px solid #58b5d2;border-radius:8px;box-shadow:0 8px 30px rgba(21,63,99,.05); }
+.camera-list :deep(.el-table) { --el-table-header-bg-color:#edf5fa;--el-table-row-hover-bg-color:#f0f8fb; }
 </style>

@@ -1,26 +1,32 @@
 <template>
   <div class="list">
+    <header class="ops-page-header">
+      <div><span class="ops-eyebrow">DEVICE REGISTRY / 接入管理</span><h1>摄像头管理</h1><p>检索、维护和检查摄像头接入信息。</p></div>
+      <div class="ops-header-mark"><span>02</span><small>设备管理</small></div>
+    </header>
     <div class="search">
       <div class="search-box">
         <el-input
             v-model="cameraSearchKeyword"
-            style="width: 240px"
-            placeholder="请输入"
+            class="camera-search-input"
+            placeholder="按名称或编号搜索"
             :suffix-icon="Search"
+            clearable
+            @keyup.enter="search"
         />
         <div class="search-btn">
-          <el-button round @click="search">搜索</el-button>
+          <el-button type="primary" round @click="search">搜索</el-button>
         </div>
         <div class="clear-btn">
           <el-button round @click="clear">清除</el-button>
         </div>
       </div>
       <div class="add">
-        <el-button round @click="addFormVisible = true">新增</el-button>
+        <el-button type="primary" plain round @click="addFormVisible = true">新增摄像头</el-button>
       </div>
     </div>
-    <div class="camera-list">
-      <el-table :data="CameraData" style="width: 100%; height: 540px;">
+    <div class="camera-list" :aria-busy="loadingCameras">
+      <el-table v-loading="loadingCameras" :data="CameraData" style="width: 100%; height: 100%;" empty-text="暂无摄像头数据">
         <el-table-column fixed prop="id" label="序号" min-width="5%">
           <template #default="{ $index }">
             <!-- $index 从 0 开始，因此 +1 使 id 从 1 开始 -->
@@ -31,16 +37,14 @@
         <el-table-column prop="productNumber" label="产品编号" min-width="8%" align="center"/>
         <el-table-column prop="status" label="状态" min-width="8%" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === '0' ? 'success' : 'danger'">
-              {{ row.status === '0' ? '在线' : '掉线' }}
-            </el-tag>
+            <RailSignal class="rail-table-signal" :state="cameraRailState(row.status)" />
           </template>
         </el-table-column>
         <el-table-column prop="ip" label="ip" min-width="10%" align="center"/>
         <el-table-column prop="type" label="类型" min-width="10%" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.type === 0 ? 'primary' : 'warning'">
-              {{ row.type === 0 ? '球机型' : '枪机型' }}
+            <el-tag :type="Number(row.type) === 0 ? 'primary' : 'warning'">
+              {{ Number(row.type) === 0 ? '球机型' : '固定枪机' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -92,7 +96,7 @@
     </div>
     <div class="editForm">
       <el-dialog v-model="editFormVisible" title="更改摄像头" width="500">
-        <el-form :model="form">
+        <el-form :model="editForm">
           <el-form-item label="名称" :label-width="formLabelWidth">
             <el-input v-model="editForm.name" autocomplete="off"/>
           </el-form-item>
@@ -134,11 +138,14 @@
 </template>
 
 <script setup>
+import RailSignal from '@/components/RailSignal.vue'
+import { cameraRailState } from '@/utils/railPresentation'
 import {ref, reactive, onMounted, onUnmounted} from 'vue'
 import {Search} from '@element-plus/icons-vue'
 import {ElMessage} from 'element-plus'
 import {getAllCameras, insertCamera, updateCameraById, deleteCameraById, searchCamera} from "@/http/api/camera.js"
 import {getCurrentInstance} from 'vue';
+import {subscribeCameraStatus} from '@/services/cameraStatus';
 
 // 获取全局 `formatDate` 方法
 const {appContext} = getCurrentInstance();
@@ -268,23 +275,36 @@ const deleteCamera = async () => {
 }
 //获取摄像头
 const CameraData = reactive([])
+const loadingCameras = ref(false)
 const getCameraData = async () => {
+  loadingCameras.value = true
   try {
     const response = await getAllCameras();
     CameraData.splice(0, CameraData.length, ...response.data);
 
   } catch (error) {
     console.error('获取摄像头列表失败:', error);
+    ElMessage.error('摄像头列表加载失败，请检查后端服务')
+  } finally {
+    loadingCameras.value = false
   }
 }
 //搜索
 const cameraSearchKeyword = ref("")
 const search = async () => {
+  if (!cameraSearchKeyword.value.trim()) {
+    getCameraData()
+    return
+  }
+  loadingCameras.value = true
   try {
     const response = await searchCamera(cameraSearchKeyword.value);
     CameraData.splice(0, CameraData.length, ...response.data);
   } catch (error) {
     console.error("搜索失败：", error);
+    ElMessage.error('搜索失败，请稍后重试')
+  } finally {
+    loadingCameras.value = false
   }
 }
 //清除搜索
@@ -293,44 +313,21 @@ const clear = () => {
   getCameraData();
 }
 
-//使用websocket实时获取摄像头的状态
-let ws = null;
+let unsubscribeCameraStatus = null;
 
-//连接 WebSocket
-const connectWebSocket = () => {
-  if (ws) {
-    ws.close();
-  }
-
-  //  WebSocket 服务器地址
-  ws = new WebSocket("ws://localhost:8081/ws/cameraStatus");
-
-  ws.onopen = () => {
-    console.log("WebSocket 连接成功");
-  };
-
-  ws.onmessage = (event) => {
-    try {
-      const cameraStatusUpdate = JSON.parse(event.data);
-      updateCameraStatus(cameraStatusUpdate);
-    } catch (error) {
-      console.error("WebSocket 数据解析失败:", error);
-    }
-  };
-
-  ws.onclose = () => {
-    console.log("WebSocket 连接已关闭");
-  };
-
-  ws.onerror = (error) => {
-    console.error("WebSocket 错误:", error);
-  };
+const subscribeToCameraStatus = () => {
+  unsubscribeCameraStatus = subscribeCameraStatus(({type, updates}) => {
+    if (type === 'update') updateCameraStatus(updates);
+    if (type === 'connected') getCameraData();
+  });
 };
 
 // 更新摄像头状态
-const updateCameraStatus = (cameraList) => {
-  cameraList.forEach(updatedCamera => {
-    const index = CameraData.findIndex(c => c.id === updatedCamera.id);
+const updateCameraStatus = (updates) => {
+  const items = Array.isArray(updates) ? updates : [updates];
+  items.forEach(updatedCamera => {
+    if (!updatedCamera || updatedCamera.id == null) return;
+    const index = CameraData.findIndex(c => Number(c.id) === Number(updatedCamera.id));
     if (index !== -1) {
       CameraData[index].status = updatedCamera.status;
     }
@@ -340,12 +337,13 @@ const updateCameraStatus = (cameraList) => {
 
 onMounted(() => {
   getCameraData();
-  connectWebSocket();
+  subscribeToCameraStatus();
 })
 
 onUnmounted(() => {
-  if (ws) {       //组件卸载时，关闭ws
-    ws.close();
+  if (unsubscribeCameraStatus) {
+    unsubscribeCameraStatus();
+    unsubscribeCameraStatus = null;
   }
 });
 
@@ -358,35 +356,61 @@ onUnmounted(() => {
   flex-direction: column;
   width: 100%;
   height: 100%;
+  min-height: 0;
+  padding: 16px;
+  gap: 12px;
+  background: #f6f8fb;
 }
 
 .search {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  width: 98%;
-  height: 12%;
-  margin: 1%;
-  padding: 0 2% 0 2%;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   background-color: #fff;
 }
 
 .search-box {
   display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.search-btn {
-  margin-left: 4%;
-}
-
-.clear-btn {
-  margin-left: 4%;
-}
+.camera-search-input { width: min(320px, 50vw); }
 
 .camera-list {
-  height: 86%;
-  width: 98%;
-  margin: 0 1% 1% 1%;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   background-color: #fff;
 }
+
+@media (max-width: 720px) {
+  .list { padding: 10px; }
+  .search { align-items: stretch; flex-direction: column; }
+  .search-box { width: 100%; }
+  .camera-search-input { width: 100%; }
+  .add :deep(.el-button) { width: 100%; }
+}
+
+.ops-page-header { flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;min-height:88px;padding:8px 6px 14px;border-bottom:1px solid #cfdeeb; }
+.ops-eyebrow { color:#157da6;font-size:11px;letter-spacing:1.5px;font-weight:700; }
+.ops-page-header h1 { margin:4px 0 2px;color:#153b5b;font-size:25px;line-height:1.2; }
+.ops-page-header p { margin:0;color:#6e879a;font-size:12px; }
+.ops-header-mark { display:flex;flex-direction:column;align-items:center;color:#2081ad;opacity:.52; }
+.ops-header-mark span { font:italic 800 30px "Segoe UI",sans-serif; }
+.ops-header-mark small { font-size:10px; }
+.list { background:linear-gradient(140deg,#f1f6fa,#f8fbfd 55%,#edf4fa); }
+.search { min-height:70px;border:0;border-left:3px solid #54afcf;border-radius:4px 8px 8px 4px;box-shadow:0 6px 20px rgba(21,63,99,.045); }
+.camera-list { padding:0;border:0;border-top:2px solid #58b5d2;border-radius:8px;box-shadow:0 8px 30px rgba(21,63,99,.055); }
+.camera-list :deep(.el-table) { --el-table-header-bg-color:#edf5fa;--el-table-row-hover-bg-color:#f0f8fb; }
 </style>

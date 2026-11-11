@@ -9,5 +9,5 @@ import javax.mail.MessagingException;
  * @create: 2025-01-21 00:43
  **/
 public interface EmailService {
-    String sendVerificationCode(String toEmail) throws MessagingException;
+    String sendVerificationCode(String toEmail, String requesterIp) throws MessagingException;
 }

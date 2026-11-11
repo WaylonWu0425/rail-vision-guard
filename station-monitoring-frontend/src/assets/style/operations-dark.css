@@ -1,0 +1,286 @@
+/* 登录后业务区共用深色语义层；不触及登录页和业务方法。 */
+#home.operations-route {
+  --ops-base:var(--instrument-ground);
+  --ops-surface:var(--instrument-panel);
+  --ops-raised:var(--instrument-surface);
+  --ops-line:var(--instrument-edge);
+  --ops-text:var(--instrument-text);
+  --ops-muted:var(--instrument-muted);
+  --el-bg-color:var(--instrument-panel);
+  --el-bg-color-overlay:var(--instrument-surface);
+  --el-fill-color-blank:var(--instrument-panel);
+  --el-fill-color-light:var(--instrument-surface);
+  --el-fill-color-lighter:var(--instrument-surface);
+  --el-border-color:var(--instrument-edge);
+  --el-border-color-light:var(--instrument-edge);
+  --el-border-color-lighter:var(--instrument-edge);
+  --el-text-color-primary:var(--instrument-text);
+  --el-text-color-regular:var(--instrument-text);
+  --el-text-color-secondary:var(--instrument-muted);
+  --el-color-primary:var(--instrument-accent);
+  color:var(--ops-text);
+}
+#home.operations-route .main-container,
+#home.operations-route .content,
+#home.operations-route .alarm,
+#home.operations-route .alarm-record,
+#home.operations-route .list,
+#home.operations-route .data-statistics,
+#home.operations-route .monitoring-screen,
+#home.operations-route .app-container,
+#home.operations-route .original-page {background:var(--instrument-ground)!important;color:var(--ops-text)}
+#home.operations-route .ops-page-header,
+#home.operations-route .monitor-page-head{background:linear-gradient(95deg,var(--instrument-surface),var(--instrument-panel) 58%,var(--instrument-panel))!important;border-bottom:1px solid var(--instrument-edge)!important}
+#home.operations-route .form,
+#home.operations-route .search,
+#home.operations-route .camera-list,
+#home.operations-route .stats-tabs,
+#home.operations-route .filter,
+#home.operations-route .chart-wrapper,
+#home.operations-route .recordings-browser,
+#home.operations-route .video-player-container,
+#home.operations-route .right-panel,
+#home.operations-route .camera-list-container,
+#home.operations-route .settings-card,
+#home.operations-route .metrics-card,
+#home.operations-route .viewer-card{background:linear-gradient(140deg,var(--instrument-panel),var(--instrument-panel))!important;color:var(--ops-text)!important;border-color:var(--ops-line)!important;box-shadow:none!important}
+#home.operations-route .el-tabs__header,
+#home.operations-route .el-tabs__content,
+#home.operations-route .el-tab-pane,
+#home.operations-route .el-tabs__item,
+#home.operations-route .el-table,
+#home.operations-route .el-table__inner-wrapper,
+#home.operations-route .el-table__body-wrapper,
+#home.operations-route .el-table__header-wrapper,
+#home.operations-route .el-table tr,
+#home.operations-route .el-table td,
+#home.operations-route .el-table th{background:var(--instrument-panel)!important;color:var(--ops-text)!important;border-color:var(--ops-line)!important}
+#home.operations-route .el-tabs__item.is-active,
+#home.operations-route .el-table th{background:var(--instrument-surface)!important;color:#d4e6ea!important}
+#home.operations-route .el-table__body tr:hover>td{background:var(--instrument-hover)!important}
+#home.operations-route .el-table__empty-block{background:var(--instrument-slot)!important}
+#home.operations-route .el-table__empty-text{color:var(--ops-muted)}
+#home.operations-route .el-input__wrapper,
+#home.operations-route .el-select__wrapper,
+#home.operations-route .el-textarea__inner,
+#home.operations-route input:not([type=checkbox]):not([type=radio]),
+#home.operations-route select{background:var(--instrument-slot)!important;color:var(--ops-text)!important;border-color:var(--instrument-edge)!important;box-shadow:0 0 0 1px var(--instrument-edge) inset!important}
+#home.operations-route .el-input__inner,
+#home.operations-route .el-select__placeholder,
+#home.operations-route .el-form-item__label{color:var(--instrument-text)!important}
+#home.operations-route .el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--danger){background:var(--instrument-surface);color:var(--instrument-text);border-color:var(--instrument-edge)}
+#home.operations-route .el-button--primary{background:var(--instrument-action);border-color:var(--instrument-action);color:var(--instrument-enamel-ink)}
+#home.operations-route .el-button--primary:hover{background:var(--instrument-action-hover)}
+#home.operations-route .filter,
+#home.operations-route .search{border-bottom:1px solid var(--ops-line)!important}
+#home.operations-route .ops-page-header p,
+#home.operations-route .monitor-page-head p{color:var(--instrument-muted)!important}
+
+/* 实时画面与录像区使用低反光深底，空状态仍保持清晰。 */
+#home.operations-route .video-container{background:var(--instrument-slot)!important}
+#home.operations-route .video-empty{background:var(--instrument-ground)!important;color:var(--instrument-muted)!important;border-color:var(--instrument-edge)!important}
+#home.operations-route .video-error{color:#ffb2a7!important;border-color:#a95656!important}
+#home.operations-route .app-container{
+  --primary-color:var(--instrument-accent);--primary-gradient:linear-gradient(135deg,#2c6b9d,var(--instrument-accent));
+  --background-color:var(--instrument-slot);--panel-bg:var(--instrument-panel);--text-color:var(--instrument-text);
+  --text-light:var(--instrument-muted);--border-color:var(--instrument-edge);--light-grey:#0d314a;
+  --card-shadow:none;--hover-shadow:0 5px 18px #00111b55;
+}
+#home.operations-route .app-container .header,
+#home.operations-route .app-container .sidebar,
+#home.operations-route .app-container .sidebar-header,
+#home.operations-route .app-container .sidebar-scroll-container,
+#home.operations-route .app-container .video-list-container,
+#home.operations-route .app-container .filter-bar,
+#home.operations-route .app-container .no-recordings,
+#home.operations-route .app-container .no-video-selected,
+#home.operations-route .app-container .content-area{background:var(--instrument-panel)!important;color:var(--instrument-text)!important;border-color:var(--instrument-edge)!important}
+#home.operations-route .app-container .content-area{background:var(--instrument-slot)!important}
+#home.operations-route .app-container .no-video-selected{background:linear-gradient(135deg,var(--instrument-panel),var(--instrument-slot))!important;border:1px solid var(--instrument-edge)}
+#home.operations-route .app-container .header h1,
+#home.operations-route .app-container .no-recordings h3,
+#home.operations-route .app-container .panel-header h2,
+#home.operations-route .app-container .no-video-selected p{color:var(--instrument-text)!important}
+#home.operations-route .app-container .sidebar-header p,
+#home.operations-route .app-container .no-recordings p{color:var(--instrument-muted)!important}
+#home.operations-route .app-container .empty-state-icon{background:var(--instrument-surface)!important;color:var(--instrument-accent)!important}
+#home.operations-route .app-container .btn:not(.import-btn){background:var(--instrument-surface);color:#d5edf8;border-color:var(--instrument-edge)}
+#home.operations-route .app-container .btn:hover{background:var(--instrument-hover);color:#fff}
+#home.operations-route .app-container .sidebar-scroll-container{background:var(--instrument-panel)!important}
+
+/* 原版识别验证保留输入与结果分栏，改为和监控工作区一致的暗面。 */
+#home.operations-route .original-page .viewer-card,
+#home.operations-route .original-page .settings-card,
+#home.operations-route .original-page .metrics-card,
+#home.operations-route .original-page .model-info,
+#home.operations-route .original-page .picture-stage,
+#home.operations-route .original-page .file-picker,
+#home.operations-route .original-page .mode-buttons button,
+#home.operations-route .original-page .loading-badge{background:var(--instrument-panel)!important;color:var(--instrument-text)!important;border-color:var(--instrument-edge)!important}
+#home.operations-route .original-page .picture-stage{background:var(--instrument-ground)!important}
+#home.operations-route .original-page h1,
+#home.operations-route .original-page h2,
+#home.operations-route .original-page .empty-state,
+#home.operations-route .original-page .file-description strong{color:var(--instrument-text)!important}
+#home.operations-route .original-page p,
+#home.operations-route .original-page small,
+#home.operations-route .original-page .empty-steps,
+#home.operations-route .original-page .viewer-note{color:var(--instrument-muted)!important}
+#home.operations-route .original-page .empty-icon,
+#home.operations-route .original-page .section-number,
+#home.operations-route .original-page .task-status{background:var(--instrument-surface)!important;color:var(--instrument-text)!important;border-color:var(--instrument-edge)!important}
+#home.operations-route .original-page .mode-buttons button.selected{background:var(--instrument-hover)!important;color:#eefaff!important;border-color:var(--instrument-accent)!important}
+
+/* 对话区沿用原有分栏与操作，只替换表面、文字和状态色。 */
+#home.operations-route .ai-page{--ink:var(--instrument-text);--muted:var(--instrument-muted);--line:var(--instrument-edge);--primary:var(--instrument-accent);--primary-hover:#1474d3;background:var(--instrument-ground)!important;color:var(--instrument-text)!important}
+#home.operations-route .ai-page .workspace,
+#home.operations-route .ai-page .assistant-panel,
+#home.operations-route .ai-page .chat-toolbar,
+#home.operations-route .ai-page .messages,
+#home.operations-route .ai-page .composer,
+#home.operations-route .ai-page .service-status,
+#home.operations-route .ai-page .scope-note,
+#home.operations-route .ai-page .quick-action,
+#home.operations-route .ai-page .prompt-grid button,
+#home.operations-route .ai-page .message-bubble,
+#home.operations-route .ai-page .scroll-latest{background:var(--instrument-panel)!important;color:var(--instrument-text)!important;border-color:var(--instrument-edge)!important}
+#home.operations-route .ai-page .assistant-panel{background:linear-gradient(180deg,var(--instrument-surface),var(--instrument-panel))!important}
+#home.operations-route .ai-page .messages{background:linear-gradient(180deg,var(--instrument-slot),var(--instrument-panel))!important}
+#home.operations-route .ai-page .message-row.user .message-bubble{background:var(--instrument-hover)!important;color:#fff!important}
+#home.operations-route .ai-page h1,
+#home.operations-route .ai-page h2,
+#home.operations-route .ai-page h3,
+#home.operations-route .ai-page .brand-copy h1,
+#home.operations-route .ai-page .scope-note strong,
+#home.operations-route .ai-page .composer-inner>label{color:var(--instrument-text)!important}
+#home.operations-route .ai-page p,
+#home.operations-route .ai-page .capability-list li,
+#home.operations-route .ai-page .message-meta{color:var(--instrument-muted)!important}
+#home.operations-route .ai-page .conversation-title>.el-icon,
+#home.operations-route .ai-page .welcome-icon{background:var(--instrument-surface)!important;color:var(--instrument-accent)!important}
+#home.operations-route .ai-page .composer-box{border-color:var(--instrument-edge)!important;background:var(--instrument-slot)!important}
+
+/* The review route carries the graphite workspace material into its existing controls. */
+#home.operations-route .alarm {
+  --ops-line: var(--instrument-edge);
+  --ops-text: #edf7ff;
+  --ops-muted: #a8c9e4;
+  background: #061e36 !important;
+}
+#home.operations-route .alarm :is(.ops-page-header,.form,.filter) {
+  background: #0a2a48 !important;
+  border-color: var(--ops-line) !important;
+}
+#home.operations-route .alarm :is(.ops-page-header p,.ops-eyebrow) { color: var(--ops-muted); }
+#home.operations-route .alarm .ops-page-header::after { background: var(--ops-line); }
+#home.operations-route .alarm :is(.el-tabs__header,.el-tabs__content,.el-tab-pane,.el-tabs__item,.el-table,.el-table__inner-wrapper,.el-table__body-wrapper,.el-table__header-wrapper,.el-table tr,.el-table td) {
+  background: #0b2a49 !important;
+}
+#home.operations-route .alarm :is(.el-tabs__item.is-active,.el-table th) {
+  background: #12395d !important;
+  color: #cee4f6 !important;
+}
+#home.operations-route .alarm :is(.el-table .rail-linked-row > td.el-table__cell,.el-table__body tr:hover > td) {
+  background: #15446b !important;
+}
+#home.operations-route .alarm :is(.el-select__wrapper,.el-input__wrapper,.el-input__inner) {
+  background: #082541 !important;
+  box-shadow: none !important;
+}
+#home.operations-route .alarm :is(.el-select__wrapper,.el-input__wrapper) { border: 1px solid #2c5f84; }
+#home.operations-route .alarm .filter .el-button {
+  background: #103555;
+  border-color: var(--instrument-edge);
+  color: #edf7ff;
+}
+#home.operations-route .alarm .filter .el-button:hover { background: #164970; }
+#home.operations-route .alarm .el-select input.el-select__input {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+#home.operations-route .alarm .rail-event-type {
+  color: #cee4f6;
+  font-size: 12px;
+}
+
+/* All routed workspaces use the overview ground, with solid structural surfaces. */
+#home.operations-route {
+  --el-color-primary:var(--instrument-accent);
+  --el-color-primary-light-3:#4ba9d5;
+  --el-color-primary-light-5:#357ea9;
+  --el-color-primary-light-7:#245e87;
+  --el-color-primary-light-8:#194a70;
+  --el-color-primary-light-9:#0f3557;
+  --el-color-primary-dark-2:var(--instrument-accent);
+  --el-text-color-disabled:#7d9ab5;
+  --el-disabled-bg-color:#0c2944;
+  --el-disabled-text-color:#8aa7c0;
+}
+#home.operations-route :is(.main-container,.content,.alarm,.alarm-record,.list,.data-statistics,.monitoring-screen,.app-container,.original-page,.user,.job-management-container,.employee-task-container,.ai-page,.image-detection) {
+  background:var(--instrument-ground)!important;
+  color:var(--instrument-text)!important;
+}
+#home.operations-route :is(.form,.search,.filter,.stats-tabs,.chart-wrapper,.original-page .viewer-card,.original-page .metrics-card,.original-page .settings-card,.profile-card,.action-bar,.feedback-card,.review-comment,.tab-content,.task-history-section,.el-card) {
+  background:var(--instrument-panel)!important;
+  color:var(--instrument-text)!important;
+  border-color:var(--instrument-edge)!important;
+}
+#home.operations-route :is(.ops-page-header,.monitor-page-head,.profile-heading,.page-heading) {
+  background:var(--instrument-panel)!important;
+  border-color:var(--instrument-edge)!important;
+}
+#home.operations-route :is(.ops-page-header h1,.monitor-page-head h1,.profile-heading h1,.section-caption,.page-title,.heading-title h1,.task-attachments-section h3,.task-history-section h3,.review-form h3) { color:var(--instrument-text)!important; }
+#home.operations-route :is(.ops-eyebrow,.heading-kicker,.profile-heading p,.avatar-hint,.review-comment,.feedback-card,.task-attachments-section) { color:var(--instrument-muted)!important; }
+#home.operations-route :is(.el-table,.el-tabs) { --el-table-bg-color:var(--instrument-panel);--el-table-tr-bg-color:var(--instrument-panel);--el-table-header-bg-color:var(--instrument-surface);--el-table-text-color:var(--instrument-text);--el-table-header-text-color:var(--instrument-text);--el-table-border-color:var(--instrument-edge); }
+#home.operations-route .el-button--primary {
+  background:var(--instrument-action);
+  border-color:var(--instrument-action);
+  color:var(--instrument-enamel-ink);
+}
+#home.operations-route .el-button--primary.is-link { background:transparent;color:var(--instrument-accent);border:0; }
+#home.operations-route .el-select input.el-select__input,
+#home.operations-route .el-input input.el-input__inner { background:transparent!important;box-shadow:none!important; }
+#home.operations-route :is(.el-select__wrapper,.el-input__wrapper):focus-within { outline:1px solid var(--instrument-accent);outline-offset:-1px; }
+#home.operations-route .el-button.is-disabled { opacity:.5; }
+#home.operations-route .ai-page { --ink:var(--instrument-text);--muted:var(--instrument-muted);--line:var(--instrument-edge);--primary:var(--instrument-accent); }
+#home.operations-route .app-container { --primary-color:var(--instrument-accent);--background-color:var(--instrument-ground);--panel-bg:var(--instrument-panel);--text-color:var(--instrument-text);--text-light:var(--instrument-muted);--border-color:var(--instrument-edge);--light-grey:var(--instrument-surface); }
+
+/* Teleported menus and dialogs inherit the active workspace palette. */
+body.rail-business-theme {
+  --el-bg-color:var(--instrument-panel);
+  --el-bg-color-overlay:var(--instrument-panel);
+  --el-fill-color-blank:var(--instrument-panel);
+  --el-fill-color-light:var(--instrument-surface);
+  --el-fill-color-lighter:var(--instrument-surface);
+  --el-text-color-primary:var(--instrument-text);
+  --el-text-color-regular:var(--instrument-text);
+  --el-text-color-secondary:var(--instrument-muted);
+  --el-border-color:var(--instrument-edge);
+  --el-border-color-light:var(--instrument-edge);
+  --el-border-color-lighter:var(--instrument-edge);
+  --el-color-primary:var(--instrument-accent);
+  --el-color-primary-light-9:#194a70;
+  --el-color-primary-dark-2:var(--instrument-accent);
+}
+body.rail-business-theme :is(.el-dialog,.el-message-box,.el-popper) { color:var(--instrument-text);background:var(--instrument-panel);border-color:var(--instrument-edge); }
+body.rail-business-theme .el-overlay .el-button--primary { background:var(--instrument-action);color:var(--instrument-enamel-ink);border-color:var(--instrument-action); }
+body.rail-business-theme .el-dialog :is(.el-form-item__label,.el-descriptions__label,.el-descriptions__content) { color:var(--instrument-text);background:var(--instrument-panel); }
+#home.operations-route .user :is(.aside,.main) {
+  background:var(--instrument-panel)!important;
+  color:var(--instrument-text);
+  border:1px solid var(--instrument-edge);
+}
+#home.operations-route :is(.tabs-header,.tabs-content,.tab-content,.task-attachments-section,.history-filters) { background:var(--instrument-panel)!important;color:var(--instrument-text);border-color:var(--instrument-edge); }
+#home.operations-route .original-page .primary-start.el-button:not(.is-disabled) { color:var(--instrument-enamel-ink);background:var(--instrument-action);border-color:var(--instrument-action); }
+#home.operations-route .original-page .connection-state { color:#86cdb0; }
+#home.operations-route .original-page .connection-state.offline { color:#e6b08b; }
+#home.operations-route .original-page .connection-state i { box-shadow:none; }
+#home.operations-route .original-page .model-info :is(dt,dd) { color:var(--instrument-muted); }
+#home.operations-route .ai-page .message-row.user .message-bubble { background:#134778!important; }
+#home.operations-route :is(.el-tag--success,.el-tag--warning,.el-tag--danger,.el-tag--info,.el-tag--primary) { background:var(--instrument-slot); }
+#home.operations-route .user .user-avatar { box-shadow:0 0 0 5px var(--instrument-surface);border:1px solid var(--instrument-edge); }
+#home.operations-route .user .avatar-uploader-icon { background:var(--instrument-slot);color:var(--instrument-muted); }
+#home.operations-route .ai-page :is(.brand-icon,.welcome-icon) { background:var(--instrument-surface)!important;color:var(--instrument-accent)!important;box-shadow:none; }
+#home.operations-route .ai-page :is(.scope-toggle,.composer-actions > span) { color:var(--instrument-muted); }
+#home.operations-route :is(.ops-eyebrow,.heading-kicker,.monitor-page-head > div > span) { color:var(--instrument-muted)!important; }

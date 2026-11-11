@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "frontend": "http://localhost:8082",
+  "steps": [
+    "real account login and recognition route connected",
+    "empty state fills workspace at 1280/1366/1860/1920 widths; no horizontal overflow, premature zero counts or results table; model details collapsed",
+    "empty-state file action opens native chooser",
+    "selected image previews before inference, without displaying predictions",
+    "uploaded synthetic test image -> real best.pt inference -> result image and counts rendered (not an accuracy evaluation)",
+    "real MP4 original preview and controls available before inference",
+    "media uses contain without cropping; model details and result rows expand/collapse",
+    "real AVI upload -> pause/resume -> all 68 frames processed -> preview and current-frame result rendered",
+    "workspace scrolls to lower detection results without stretching the video",
+    "explicit stop reaches stopped state",
+    "USB input UI available; no real device opened",
+    "network camera selection UI available; no RTSP stream opened",
+    "leaving route stops video task and releases capture"
+  ],
+  "pageErrors": []
+}

@@ -1,7 +1,7 @@
 <template>
   <div class="sidebar">
     <el-menu
-        default-active="2"
+        :default-active="route.path"
         class="el-menu-vertical-demo"
         :collapse="isCollapse"
         :router="true"
@@ -32,22 +32,25 @@
         <template #title>实时预览</template>
       </el-menu-item>
 
-      <!--      图像监测-->
-<!--      <el-menu-item index="/imageDetection">-->
-<!--        <el-icon>-->
-<!--          <Monitor/>-->
-<!--        </el-icon>-->
-<!--        <template #title>图像检测</template>-->
-<!--      </el-menu-item>-->
+      <!-- 演示主流程：预览 → 检测 → 告警 → 回放 -->
+      <el-menu-item index="/originalRecognition">
+        <el-icon><Monitor/></el-icon>
+        <template #title>人车识别</template>
+      </el-menu-item>
 
-      <!--      视频管理-->
+      <el-menu-item index="/alarm">
+        <el-icon>
+          <Bell/>
+        </el-icon>
+        <template #title>告警中心</template>
+      </el-menu-item>
+
       <el-menu-item index="/video">
         <el-icon>
           <VideoCamera/>
         </el-icon>
-        <template #title>视频管理</template>
+        <template #title>视频回放</template>
       </el-menu-item>
-
 
       <!--      摄像头管理-->
       <el-menu-item index="/cameramanagement">
@@ -57,43 +60,36 @@
         <template #title>摄像头管理</template>
       </el-menu-item>
 
-      <!-- 报警信息-->
-<!--      <el-sub-menu index="3">-->
-<!--        <template #title>-->
-<!--          <el-icon>-->
-<!--            <Bell/>-->
-<!--          </el-icon>-->
-<!--          <span>报警信息</span>-->
-<!--        </template>-->
-<!--        <el-menu-item-group>-->
-<!--          <el-menu-item index="/alarm">查看警报</el-menu-item>-->
-<!--          <el-menu-item index="/alarmrecord">历史记录</el-menu-item>-->
-<!--        </el-menu-item-group>-->
-<!--      </el-sub-menu>-->
+      <el-menu-item index="/alarmrecord">
+        <el-icon>
+          <DocumentRemove/>
+        </el-icon>
+        <template #title>告警历史</template>
+      </el-menu-item>
 
       <!--      预置点管理-->
-<!--      <el-sub-menu index="5">-->
-<!--        <template #title>-->
-<!--          <el-icon>-->
-<!--            <Operation/>-->
-<!--          </el-icon>-->
-<!--          <span>预置点管理</span>-->
-<!--        </template>-->
-<!--        <el-menu-item-group>-->
-<!--          <el-menu-item index="/ballMachine">球机预置点</el-menu-item>-->
-<!--          <el-menu-item index="/gunMachine">枪机预置点</el-menu-item>-->
-<!--          <el-menu-item index="/stockTrack">股道预置点</el-menu-item>-->
-<!--          <el-menu-item index="/switch">道岔预置点</el-menu-item>-->
-<!--        </el-menu-item-group>-->
-<!--      </el-sub-menu>-->
+      <el-sub-menu index="5">
+        <template #title>
+          <el-icon>
+            <Operation/>
+          </el-icon>
+          <span>预置点管理</span>
+        </template>
+        <el-menu-item-group>
+          <el-menu-item index="/ballMachine">球机预置点</el-menu-item>
+          <el-menu-item index="/gunMachine">枪机预置点</el-menu-item>
+          <el-menu-item index="/stockTrack">股道预置点</el-menu-item>
+          <el-menu-item index="/switch">道岔预置点</el-menu-item>
+        </el-menu-item-group>
+      </el-sub-menu>
 
       <!--      数据统计-->
-<!--      <el-menu-item index="/DataStatistics">-->
-<!--        <el-icon>-->
-<!--          <DataLine/>-->
-<!--        </el-icon>-->
-<!--        <template #title>数据统计</template>-->
-<!--      </el-menu-item>-->
+      <el-menu-item index="/dataStatistics">
+        <el-icon>
+          <DataLine/>
+        </el-icon>
+        <template #title>数据统计</template>
+      </el-menu-item>
 
       <!--      用户管理-->
       <el-menu-item index="/userManagement">
@@ -133,6 +129,7 @@
 <script setup>
 import {ref, computed} from 'vue'
 import {useStore} from 'vuex'
+import {useRoute} from 'vue-router'
 import {
   User,
   Menu as IconMenu,
@@ -150,6 +147,7 @@ import {
 } from '@element-plus/icons-vue'
 
 const store = useStore()
+const route = useRoute()
 const isCollapse = ref(true)
 
 // 获取用户角色
@@ -165,13 +163,27 @@ const userRole = computed(() => store.getters['user/getUserRole'])
   --el-menu-horizontal-height: 50px;
 }
 
-.el-menu-vertical-demo:not(.el-menu--collapse) {
-  width: 180px;
-  min-height: 94vh;
+.sidebar,
+.el-menu-vertical-demo {
+  height: 100%;
+  min-height: 0;
+  background: #061b32;
+  border-right: 1px solid rgba(69, 163, 194, .27);
 }
 
-.el-menu-vertical-demo:not(.el-menu--expand) {
-  min-height: 94vh;
+.el-menu-vertical-demo {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.el-menu-vertical-demo :deep(.el-menu-item),
+.el-menu-vertical-demo :deep(.el-sub-menu__title) { color:#b2d0de; }
+.el-menu-vertical-demo :deep(.el-menu-item:hover),
+.el-menu-vertical-demo :deep(.el-sub-menu__title:hover) { color:#f2fbff;background:#104168; }
+.el-menu-vertical-demo :deep(.el-menu-item.is-active) { color:#55d9ed;background:#0a3557;box-shadow:inset 3px 0 #28c2eb; }
+.el-menu-vertical-demo :deep(.el-menu-item-group__title) { background:#061b32; }
+
+.el-menu-vertical-demo:not(.el-menu--collapse) {
+  width: 180px;
 }
 
 .isCollapseBtn {

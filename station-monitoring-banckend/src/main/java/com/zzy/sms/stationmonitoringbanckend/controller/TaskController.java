@@ -92,6 +92,7 @@ public class TaskController {
             Long taskId = taskService.createTask(task);
             taskHistory.setTaskId(taskId);
             taskService.insertTaskHistory(taskHistory);
+            response.put("data", Collections.singletonMap("taskId", taskId));
             response.put("success", true);
             response.put("message", "创建任务成功");
             return ResponseEntity.ok(response);

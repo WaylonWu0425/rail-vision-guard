@@ -1,0 +1,9 @@
+Flask>=3.0,<4
+flask-cors>=4,<7
+lap>=0.5.12
+numpy>=1.26
+opencv-python>=4.8
+PyMySQL>=1.1
+PyYAML>=6
+torch>=2.0
+ultralytics>=8.0.199

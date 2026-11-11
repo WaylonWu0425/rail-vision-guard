@@ -1,0 +1,44 @@
+/* Animation uses transforms and opacity only. Layout and controls remain live. */
+.dashboard-route[data-entrance="running"] { animation: workspace-space var(--entrance-brand) both; }
+.dashboard-route[data-entrance="running"] .overview-brand { animation: brand-seat var(--entrance-brand) var(--entrance-easing) both; }
+.dashboard-route[data-entrance="running"] .dashboard-grid > .device-module { animation: resource-seat var(--entrance-side) var(--entrance-easing) var(--entrance-resourceDelay) both; }
+.dashboard-route[data-entrance="running"] .event-inspector { animation: evidence-seat var(--entrance-side) var(--entrance-easing) var(--entrance-evidenceDelay) both; }
+.dashboard-route[data-entrance="running"] .trend-module,
+.dashboard-route[data-entrance="running"] .grouped-readouts { animation: data-reveal var(--entrance-data) var(--entrance-easing) var(--entrance-frameDelay) both; }
+.dashboard-route[data-entrance="running"] .dash-module > .module-head::after {
+  transform-origin: left;
+  animation: structure-reveal var(--entrance-frame) var(--entrance-easing) var(--entrance-frameDelay) both;
+}
+.dashboard-route[data-entrance="running"] .scene-module::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid var(--instrument-edge-lit);
+  pointer-events: none;
+  transform-origin: center;
+  animation: structure-reveal var(--entrance-frame) var(--entrance-easing) var(--entrance-frameDelay) both;
+}
+.dashboard-route[data-entrance="running"] .status-token strong,
+.dashboard-route[data-entrance="running"] .readout-breakdown strong,
+.dashboard-route[data-entrance="running"] .review-stats strong {
+  animation: data-reveal var(--entrance-readout) var(--entrance-easing) var(--entrance-resourceDelay) both;
+}
+.dashboard-route[data-entrance="running"] .entrance-focus {
+  animation: attention-confirm var(--entrance-focus) ease-out both;
+}
+.dashboard-route[data-entrance="complete"] .dashboard { animation: data-reveal var(--entrance-recover) ease-out; }
+@keyframes workspace-space { from { background:var(--instrument-ground); } to { background:var(--instrument-slot); } }
+@keyframes brand-seat { from { opacity:.25;transform:translateY(-3px); } to { opacity:1;transform:none; } }
+@keyframes resource-seat { from { opacity:.45;transform:translateX(-6px); } to { opacity:1;transform:none; } }
+@keyframes evidence-seat { from { opacity:.45;transform:translateX(6px); } to { opacity:1;transform:none; } }
+@keyframes data-reveal { from { opacity:.55; } to { opacity:1; } }
+@keyframes structure-reveal { from { opacity:.2;transform:scaleX(.88); } to { opacity:1;transform:none; } }
+@keyframes attention-confirm { 0%,100% { filter:brightness(1); } 40% { filter:brightness(1.14);box-shadow:inset 0 0 0 1px var(--instrument-accent); } }
+@media(prefers-reduced-motion:reduce) {
+  [data-entrance] *,[data-entrance]::after { animation:none!important;transition:none!important; }
+}
+.live-readout { animation:data-reveal var(--entrance-readout) ease-out; }
+.embedded .stage[data-entrance="loading"] :is(.marker-guides,.spatial-pin,.zone-pin) { opacity:0; }
+
+@keyframes anchor-connect { from { opacity:0; } to { opacity:1; } }
+@media(prefers-reduced-motion:reduce) { .live-readout { animation:none!important; } }

@@ -4,10 +4,8 @@ export const doLoginWithAccount = (account, password) => {
     return http({
         url: "/user/doLogin/account",
         method: "post",
-        params: {
-            account,
-            password,
-        }
+        data: new URLSearchParams({ account, password }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
 }
 
@@ -15,10 +13,8 @@ export const doLoginWithEmail = (email, code) => {
     return http({
         url: "/user/doLogin/email",
         method: "post",
-        params: {
-            email,
-            code,
-        }
+        data: new URLSearchParams({ email, code }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
 }
 
@@ -35,10 +31,8 @@ export const registerWithAccount = (account, password) => {
     return http({
         url: "/user/register/account",
         method: "post",
-        params: {
-            account,
-            password,
-        }
+        data: new URLSearchParams({ account, password }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
 }
 
@@ -46,10 +40,8 @@ export const registerWithEmail = (email, code) => {
     return http({
         url: "/user/register/email",
         method: "post",
-        params: {
-            email,
-            code,
-        }
+        data: new URLSearchParams({ email, code }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
 }
 

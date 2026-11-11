@@ -1,0 +1,98 @@
+{
+  "scope": "original model functional integration only; no accuracy or throughput benchmark",
+  "inputs": {
+    "image": {
+      "path": "D:\\AAA空信242\\比赛\\进行中\\第八届全球校园人工智能算法精英大赛\\升级研究\\现场评测集_v1\\images\\photo_20261016-162706.jpg",
+      "sha256": "78448d4f35325e709aa02ebc559fcc9436b17f12f5b1321097203c4a70767e59"
+    },
+    "video": {
+      "path": "D:\\AAA空信242\\比赛\\进行中\\第八届全球校园人工智能算法精英大赛\\真实车站监控视频\\环境监控.avi",
+      "sha256": "20341c576fb6df3a35af9485339929c088d237adb1cedfcbad12ccaaf680b162"
+    },
+    "model": {
+      "path": "D:\\AAA空信242\\比赛\\项目代码\\视界巡警\\station-monitoring-master\\scan\\Detection\\models\\best.pt",
+      "sha256": "69747c4762e13194385e7c3111b728bae42fcadfbefc21a29f4b3a8e2640a33e"
+    }
+  },
+  "python": "3.14.5",
+  "versions": {
+    "ultralytics": "8.4.163",
+    "torch": "2.13.0",
+    "opencv-python": "5.0.0.93",
+    "flask": "3.1.3"
+  },
+  "unit": {
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": "test_camera_list_has_no_credentials (test_original_recognition.RecognitionTests.test_camera_list_has_no_credentials) ... ok\ntest_corrupt_image_rejected (test_original_recognition.RecognitionTests.test_corrupt_image_rejected) ... ok\ntest_escaped_rtsp_credentials (test_original_recognition.RecognitionTests.test_escaped_rtsp_credentials) ... ok\ntest_failed_camera_no_fake_results (test_original_recognition.RecognitionTests.test_failed_camera_no_fake_results) ... ok\ntest_image_detection_and_preview (test_original_recognition.RecognitionTests.test_image_detection_and_preview) ... ok\ntest_image_pixel_guard (test_original_recognition.RecognitionTests.test_image_pixel_guard) ... ok\ntest_incomplete_video_is_failure (test_original_recognition.RecognitionTests.test_incomplete_video_is_failure) ... ok\ntest_invalid_video_extension (test_original_recognition.RecognitionTests.test_invalid_video_extension) ... ok\ntest_live_disconnect_is_failure (test_original_recognition.RecognitionTests.test_live_disconnect_is_failure) ... ok\ntest_no_alarm_or_tracking_contract (test_original_recognition.RecognitionTests.test_no_alarm_or_tracking_contract) ... ok\ntest_no_second_task_queued (test_original_recognition.RecognitionTests.test_no_second_task_queued) ... ok\ntest_pause_resume_and_stop (test_original_recognition.RecognitionTests.test_pause_resume_and_stop) ... ok\ntest_rtsp_uses_config_not_arbitrary_url_and_hides_credentials (test_original_recognition.RecognitionTests.test_rtsp_uses_config_not_arbitrary_url_and_hides_credentials) ... ok\ntest_token_and_origin_and_host (test_original_recognition.RecognitionTests.test_token_and_origin_and_host) ... ok\ntest_usb_index_validation (test_original_recognition.RecognitionTests.test_usb_index_validation) ... ok\ntest_video_each_frame_and_upload_removed (test_original_recognition.RecognitionTests.test_video_each_frame_and_upload_removed) ... ok\n\n----------------------------------------------------------------------\nRan 16 tests in 1.946s\n\nOK\n"
+  },
+  "hardwareCameraTests": "not performed; no camera availability assumed",
+  "status": "passed",
+  "actualResults": {
+    "image": {
+      "captureReleased": true,
+      "completedHz": 0.05,
+      "counts": {
+        "car": 0,
+        "person": 0
+      },
+      "detections": [],
+      "error": null,
+      "frameIndex": 1,
+      "height": 767,
+      "id": "2560b8cb3abaaa8e0b2212f1",
+      "mediaSeconds": null,
+      "mode": "image",
+      "name": "photo_20261016-162706.jpg",
+      "processingMs": 8882.33,
+      "sourceFps": null,
+      "state": "finished",
+      "totalFrames": null,
+      "width": 1365
+    },
+    "video": {
+      "captureReleased": true,
+      "completedHz": 17.2,
+      "counts": {
+        "car": 0,
+        "person": 2
+      },
+      "detections": [
+        {
+          "box": [
+            587.61,
+            613.56,
+            626.41,
+            680.05
+          ],
+          "confidence": 0.673982560634613,
+          "label": "person"
+        },
+        {
+          "box": [
+            1214.6,
+            98.97,
+            1249.33,
+            136.49
+          ],
+          "confidence": 0.3766448199748993,
+          "label": "person"
+        }
+      ],
+      "error": null,
+      "frameIndex": 68,
+      "height": 720,
+      "id": "ef5a2d84cec86e95643672c5",
+      "mediaSeconds": 3.35,
+      "mode": "video",
+      "name": "环境监控.avi",
+      "processingMs": 43.95,
+      "sourceFps": 20.0,
+      "state": "finished",
+      "totalFrames": 68,
+      "width": 1280
+    }
+  },
+  "sourceHashesUnchanged": true,
+  "executorClosed": true
+}

@@ -30,6 +30,8 @@ public interface CameraMapper {
     Camera getCameraByIp(String ip);
     @Update("UPDATE camera SET status = #{status} WHERE id = #{id}")
     void updateStatus(Long id, Byte status);
+    @Select("select * from camera where id = #{id}")
+    Camera getCameraById(Long id);
 
 
 }

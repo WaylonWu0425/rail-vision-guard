@@ -1,5 +1,6 @@
 <template>
   <div class="list">
+    <header class="ops-page-header"><div><span class="ops-eyebrow">TRACK PRESETS / 站场配置</span><h1>股道预置点</h1><p>检索摄像头与股道的关联记录。</p></div></header>
       <div class="search">
           <div class="search-box">
               <el-form-item label="摄像头" :label-width="formLabelWidth">
@@ -142,4 +143,13 @@ onMounted(() => {
   margin: 0 1% 1% 1%;
   background-color: #fff;
 }
+
+.ops-page-header { flex:0 0 auto;min-height:80px;margin-bottom:10px;padding:6px 6px 14px;border-bottom:1px solid #cfdeeb; }
+.ops-eyebrow { color:#157da6;font-size:11px;letter-spacing:1.4px;font-weight:700; }
+.ops-page-header h1 { margin:4px 0 2px;color:#153b5b;font-size:24px;line-height:1.2; }
+.ops-page-header p { margin:0;color:#6e879a;font-size:12px; }
+.list { width:100%;height:100%;min-height:0;display:flex;flex-direction:column;padding:16px;background:linear-gradient(140deg,#f1f6fa,#f8fbfd); }
+.search { flex:0 0 auto;width:100%;height:auto;min-height:66px;margin:0 0 12px;padding:12px 16px;border:0;border-left:3px solid #54afcf;border-radius:5px;background:#fff;box-shadow:0 6px 20px rgba(21,63,99,.045); }
+.camera-list { flex:1;min-height:0;width:100%;height:auto;margin:0;padding:0;overflow:auto;background:#fff;border:0;border-top:2px solid #58b5d2;border-radius:8px;box-shadow:0 8px 30px rgba(21,63,99,.05); }
+.camera-list :deep(.el-table) { --el-table-header-bg-color:#edf5fa;--el-table-row-hover-bg-color:#f0f8fb; }
 </style>

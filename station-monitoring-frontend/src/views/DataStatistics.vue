@@ -1,6 +1,7 @@
 <template>
   <div class="data-statistics">
-    <el-tabs type="border-card" class="stats-tabs" @tab-click="handleTabClick">
+    <header class="ops-page-header"><div><span class="ops-eyebrow">OPERATIONS ANALYTICS / 数据分析</span><h1>数据统计</h1><p>按设备、告警和任务查看统计结果与报表。</p></div></header>
+    <el-tabs v-model="activeTab" type="border-card" class="stats-tabs" @tab-change="handleTabChange">
       <el-tab-pane label="设备运行统计" name="device">
         <div class="filter-section">
           <div class="date-filter">
@@ -190,10 +191,11 @@
 </template>
 
 <script setup>
-import {ref, reactive, onMounted, nextTick} from 'vue'
+import {ref, reactive, onMounted, onUnmounted, nextTick} from 'vue'
 import {Document, List} from '@element-plus/icons-vue'
 import {ElMessage} from 'element-plus'
 import * as echarts from 'echarts'
+import '@/utils/railChartTheme'
 import {
   getDeviceRunningStats,
   getAlarmStats,
@@ -238,6 +240,28 @@ const dateRange = ref([])
 const deviceRunningData = ref([])
 let deviceRunningChart = null
 let deviceFailureChart = null
+let statisticsMounted = false
+let resizeFrame = null
+
+const resizeCharts = () => {
+  if (!statisticsMounted || resizeFrame !== null) return
+
+  resizeFrame = window.requestAnimationFrame(() => {
+    resizeFrame = null
+    [
+      deviceRunningChart,
+      deviceFailureChart,
+      alarmTypeChart,
+      alarmTrendChart,
+      taskCompletionChart,
+      taskDurationChart
+    ].forEach((chart) => {
+      if (!chart || chart.isDisposed()) return
+      const container = chart.getDom()
+      if (container?.clientWidth > 0 && container?.clientHeight > 0) chart.resize()
+    })
+  })
+}
 
 // 获取设备运行统计数据
 const fetchDeviceStats = async () => {
@@ -253,12 +277,14 @@ const fetchDeviceStats = async () => {
     const [startDate, endDate] = dateRange.value
 
     const response = await getDeviceRunningStats(startDate, endDate)
+    if (!statisticsMounted) return
     deviceRunningData.value = response.data.deviceRunningData || []
 
     console.log('获取设备运行数据成功:', deviceRunningData.value)
 
     // 确保DOM已加载完成
     nextTick(() => {
+      if (!statisticsMounted) return
       console.log('nextTick: 开始渲染图表...')
       // 更新图表
       renderDeviceRunningChart(deviceRunningData.value)
@@ -272,11 +298,9 @@ const fetchDeviceStats = async () => {
 
 // 渲染设备运行时间图表
 const renderDeviceRunningChart = (data) => {
-  if (deviceRunningChart) {
-    deviceRunningChart.dispose();
-    deviceRunningChart = null;
-  }
-  deviceRunningChart = echarts.init(document.getElementById('deviceRunningChart'))
+  const container = document.getElementById('deviceRunningChart')
+  if (!container) return
+  deviceRunningChart = echarts.getInstanceByDom(container) || echarts.init(container, 'rail-workspace')
 
   const deviceNames = data.map(item => item.deviceName)
   const runningTimes = data.map(item => item.runningTime)
@@ -319,17 +343,17 @@ const renderDeviceRunningChart = (data) => {
         data: runningTimes,
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            {offset: 0, color: '#83bff6'},
-            {offset: 0.5, color: '#5470c6'},
-            {offset: 1, color: '#3b5998'}
+            {offset: 0, color: '#b3d4d9'},
+            {offset: 0.5, color: '#75a6b1'},
+            {offset: 1, color: '#426672'}
           ])
         },
         emphasis: {
           itemStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              {offset: 0, color: '#5470c6'},
-              {offset: 0.7, color: '#3b5998'},
-              {offset: 1, color: '#2c3e67'}
+              {offset: 0, color: '#75a6b1'},
+              {offset: 0.7, color: '#426672'},
+              {offset: 1, color: '#304b57'}
             ])
           }
         }
@@ -342,9 +366,9 @@ const renderDeviceRunningChart = (data) => {
 
 // 渲染设备故障率图表
 const renderDeviceFailureChart = (data) => {
-  if (!deviceFailureChart) {
-    deviceFailureChart = echarts.init(document.getElementById('deviceFailureChart'))
-  }
+  const container = document.getElementById('deviceFailureChart')
+  if (!container) return
+  deviceFailureChart = echarts.getInstanceByDom(container) || echarts.init(container, 'rail-workspace')
 
   const deviceNames = data.map(item => item.deviceName)
   const failureRates = data.map(item => parseFloat(item.failureRate))
@@ -358,7 +382,7 @@ const renderDeviceFailureChart = (data) => {
       orient: 'horizontal',
       bottom: 'bottom',
       textStyle: {
-        color: '#666'
+        color: '#acbbc2'
       }
     },
     series: [
@@ -391,7 +415,7 @@ const renderDeviceFailureChart = (data) => {
           value: failureRates[index],
           itemStyle: {
             color: [
-              '#5470c6', '#91cc75', '#fac858', '#ee6666',
+              '#75a6b1', '#91cc75', '#fac858', '#ee6666',
               '#73c0de', '#3ba272', '#fc8452', '#9a60b4'
             ][index % 8]
           }
@@ -426,6 +450,7 @@ const fetchAlarmStats = async () => {
 
     // 获取报警统计信息
     const response = await getAlarmStats(startDate, endDate)
+    if (!statisticsMounted) return
     alarmStatsData.value = response.data.alarmStatsData || []
     const alarmTrendData = response.data.alarmTrendData || []
 
@@ -440,9 +465,9 @@ const fetchAlarmStats = async () => {
 
 // 渲染报警类型分布图表
 const renderAlarmTypeChart = (data) => {
-  if (!alarmTypeChart) {
-    alarmTypeChart = echarts.init(document.getElementById('alarmTypeChart'))
-  }
+  const container = document.getElementById('alarmTypeChart')
+  if (!container) return
+  alarmTypeChart = echarts.getInstanceByDom(container) || echarts.init(container, 'rail-workspace')
 
   const alarmTypes = data.map(item => item.alarmType)
   const alarmCounts = data.map(item => item.alarmCount)
@@ -456,7 +481,7 @@ const renderAlarmTypeChart = (data) => {
       orient: 'vertical',
       left: 'left',
       textStyle: {
-        color: '#666'
+        color: '#acbbc2'
       }
     },
     series: [
@@ -508,9 +533,9 @@ const renderAlarmTypeChart = (data) => {
 
 // 渲染报警趋势图表
 const renderAlarmTrendChart = (data) => {
-  if (!alarmTrendChart) {
-    alarmTrendChart = echarts.init(document.getElementById('alarmTrendChart'))
-  }
+  const container = document.getElementById('alarmTrendChart')
+  if (!container) return
+  alarmTrendChart = echarts.getInstanceByDom(container) || echarts.init(container, 'rail-workspace')
 
   const dates = data.map(item => item.date)
   const dangerAlarms = data.map(item => item.dangerAlarmCount)
@@ -529,7 +554,7 @@ const renderAlarmTrendChart = (data) => {
     legend: {
       data: ['危险报警', '摄像头警告'],
       textStyle: {
-        color: '#666'
+        color: '#acbbc2'
       },
       top: 0
     },
@@ -547,7 +572,7 @@ const renderAlarmTrendChart = (data) => {
         data: dates,
         axisLine: {
           lineStyle: {
-            color: '#999'
+            color: '#acbbc2'
           }
         },
         axisLabel: {
@@ -560,17 +585,17 @@ const renderAlarmTrendChart = (data) => {
         type: 'value',
         name: '报警次数',
         nameTextStyle: {
-          color: '#666'
+          color: '#acbbc2'
         },
         splitLine: {
           lineStyle: {
             type: 'dashed',
-            color: '#DDD'
+            color: '#3b4c54'
           }
         },
         axisLine: {
           lineStyle: {
-            color: '#999'
+            color: '#acbbc2'
           }
         }
       }
@@ -663,6 +688,7 @@ const fetchTaskStats = async () => {
 
     // 获取任务完成情况
     const response = await getTaskStats(startDate, endDate)
+    if (!statisticsMounted) return
     taskStatsData.value = response.data.taskStatsData || []
 
     // 更新图表
@@ -676,9 +702,9 @@ const fetchTaskStats = async () => {
 
 // 渲染任务完成率图表
 const renderTaskCompletionChart = (data) => {
-  if (!taskCompletionChart) {
-    taskCompletionChart = echarts.init(document.getElementById('taskCompletionChart'))
-  }
+  const container = document.getElementById('taskCompletionChart')
+  if (!container) return
+  taskCompletionChart = echarts.getInstanceByDom(container) || echarts.init(container, 'rail-workspace')
 
   const taskTypes = data.map(item => item.taskType)
   const completionRates = data.map(item => parseFloat(item.completionRate))
@@ -705,7 +731,7 @@ const renderTaskCompletionChart = (data) => {
       splitLine: {
         lineStyle: {
           type: 'dashed',
-          color: '#DDD'
+          color: '#3b4c54'
         }
       }
     },
@@ -714,11 +740,11 @@ const renderTaskCompletionChart = (data) => {
       data: taskTypes,
       axisLine: {
         lineStyle: {
-          color: '#999'
+          color: '#acbbc2'
         }
       },
       axisLabel: {
-        color: '#666'
+        color: '#acbbc2'
       }
     },
     series: [
@@ -751,9 +777,9 @@ const renderTaskCompletionChart = (data) => {
 
 // 渲染任务耗时图表
 const renderTaskDurationChart = (data) => {
-  if (!taskDurationChart) {
-    taskDurationChart = echarts.init(document.getElementById('taskDurationChart'))
-  }
+  const container = document.getElementById('taskDurationChart')
+  if (!container) return
+  taskDurationChart = echarts.getInstanceByDom(container) || echarts.init(container, 'rail-workspace')
 
   const taskTypes = data.map(item => item.taskType)
   const avgDurations = data.map(item => parseFloat(item.avgDuration))
@@ -774,23 +800,23 @@ const renderTaskDurationChart = (data) => {
       data: taskTypes,
       axisLine: {
         lineStyle: {
-          color: '#999'
+          color: '#acbbc2'
         }
       },
       axisLabel: {
-        color: '#666'
+        color: '#acbbc2'
       }
     },
     yAxis: {
       type: 'value',
       name: '平均耗时(分钟)',
       nameTextStyle: {
-        color: '#666'
+        color: '#acbbc2'
       },
       splitLine: {
         lineStyle: {
           type: 'dashed',
-          color: '#DDD'
+          color: '#3b4c54'
         }
       }
     },
@@ -814,7 +840,7 @@ const renderTaskDurationChart = (data) => {
             y2: 0,
             colorStops: [
               {offset: 0, color: '#73c0de'},
-              {offset: 1, color: '#5470c6'}
+              {offset: 1, color: '#75a6b1'}
             ]
           }
         },
@@ -831,7 +857,7 @@ const renderTaskDurationChart = (data) => {
             {type: 'min', name: '最小值'}
           ],
           itemStyle: {
-            color: '#5470c6'
+            color: '#75a6b1'
           }
         },
         markLine: {
@@ -839,7 +865,7 @@ const renderTaskDurationChart = (data) => {
             {type: 'average', name: '平均值'}
           ],
           lineStyle: {
-            color: '#5470c6',
+            color: '#75a6b1',
             type: 'dashed'
           }
         }
@@ -940,8 +966,8 @@ const exportToExcel = async () => {
 const activeTab = ref('device')
 
 // 处理tab切换事件
-const handleTabClick = (tab) => {
-  activeTab.value = tab.props.name;
+const handleTabChange = (tabName) => {
+  activeTab.value = tabName
   disposeAllCharts();
   nextTick(() => {
     if (activeTab.value === 'device') {
@@ -966,36 +992,27 @@ const initDeviceCharts = () => {
 // 初始化报警信息图表
 const initAlarmCharts = () => {
   if (!alarmTypeChart || alarmTypeChart.isDisposed()) {
-    alarmTypeChart = echarts.init(document.getElementById('alarmTypeChart'))
+    alarmTypeChart = echarts.init(document.getElementById('alarmTypeChart'), 'rail-workspace')
   }
   if (!alarmTrendChart || alarmTrendChart.isDisposed()) {
-    alarmTrendChart = echarts.init(document.getElementById('alarmTrendChart'))
+    alarmTrendChart = echarts.init(document.getElementById('alarmTrendChart'), 'rail-workspace')
   }
 }
 
 // 初始化任务完成图表
 const initTaskCharts = () => {
   if (!taskCompletionChart || taskCompletionChart.isDisposed()) {
-    taskCompletionChart = echarts.init(document.getElementById('taskCompletionChart'))
+    taskCompletionChart = echarts.init(document.getElementById('taskCompletionChart'), 'rail-workspace')
   }
   if (!taskDurationChart || taskDurationChart.isDisposed()) {
-    taskDurationChart = echarts.init(document.getElementById('taskDurationChart'))
+    taskDurationChart = echarts.init(document.getElementById('taskDurationChart'), 'rail-workspace')
   }
 }
 
 // 页面加载时初始化
 onMounted(() => {
+  statisticsMounted = true
   console.log('页面挂载完成...')
-
-  // 设置图表响应式调整大小
-  const resizeCharts = () => {
-    if (deviceRunningChart && !deviceRunningChart.isDisposed()) deviceRunningChart.resize()
-    if (deviceFailureChart && !deviceFailureChart.isDisposed()) deviceFailureChart.resize()
-    if (alarmTypeChart && !alarmTypeChart.isDisposed()) alarmTypeChart.resize()
-    if (alarmTrendChart && !alarmTrendChart.isDisposed()) alarmTrendChart.resize()
-    if (taskCompletionChart && !taskCompletionChart.isDisposed()) taskCompletionChart.resize()
-    if (taskDurationChart && !taskDurationChart.isDisposed()) taskDurationChart.resize()
-  }
 
   window.addEventListener('resize', resizeCharts)
 
@@ -1051,6 +1068,16 @@ const disposeAllCharts = () => {
     taskDurationChart = null;
   }
 }
+
+onUnmounted(() => {
+  statisticsMounted = false
+  if (resizeFrame !== null) {
+    window.cancelAnimationFrame(resizeFrame)
+    resizeFrame = null
+  }
+  window.removeEventListener('resize', resizeCharts)
+  disposeAllCharts()
+})
 </script>
 
 <style scoped>
@@ -1113,4 +1140,14 @@ const disposeAllCharts = () => {
   display: flex;
   gap: 15px;
 }
+
+.ops-page-header { flex:0 0 auto;min-height:80px;margin-bottom:12px;padding:6px 6px 14px;border-bottom:1px solid #cfdeeb; }
+.ops-eyebrow { color:#157da6;font-size:11px;letter-spacing:1.4px;font-weight:700; }
+.ops-page-header h1 { margin:4px 0 2px;color:#153b5b;font-size:24px;line-height:1.2; }
+.ops-page-header p { margin:0;color:#6e879a;font-size:12px; }
+
+.data-statistics { display:flex;flex-direction:column;min-height:0;background:#f2f7fb; }
+.stats-tabs { flex:1;min-height:0;height:auto;margin:0;border:0;border-top:2px solid #58b5d2;border-radius:8px;background:#fff;box-shadow:0 8px 30px rgba(21,63,99,.05); }
+.stats-tabs :deep(.el-tabs__content) { height:calc(100% - 56px);overflow:auto; }
+.chart-wrapper { border:0;border-top:1px solid #c5e2ed;border-radius:4px 4px 8px 8px;box-shadow:0 5px 20px rgba(21,63,99,.04); }
 </style>

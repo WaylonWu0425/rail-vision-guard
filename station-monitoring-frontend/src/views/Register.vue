@@ -1,195 +1,200 @@
 <template>
-  <div class="login">
-    <div class="login-box">
-      <!--      <div class="name">视界巡警</div>-->
-      <div class="name">车站视频管理系统</div>
-      <!--      <div class="name">车站监控系统</div>-->
-      <div class="info">
-        <el-tabs v-model="activeName" class="demo-tabs" @tab-click="handleClick" stretch="true">
-          <el-tab-pane label="账户注册" name="first">
-            <div><span>账户</span>
-              <el-input v-model="userInfo.account" style="width: 70%;margin-left: 30px;" class="input-box"/>
-            </div>
-            <div><span>密码</span>
-              <el-input v-model="userInfo.password" style="width: 70%;margin-left: 30px;" class="input-box"/>
-            </div>
-            <div class="getCode"></div>
-          </el-tab-pane>
-          <el-tab-pane label="邮箱注册" name="second">
-            <div><span>邮箱</span>
-              <el-input v-model="userInfo.email" style="width: 70%;margin-left: 30px;" class="input-box"/>
-            </div>
-            <div><span>验证码</span>
-              <el-input v-model="userInfo.code" style="width: 70%" class="input-box"/>
-            </div>
-            <div class="getCode">
-              <el-button
-                  type="plain"
-                  @click=getCode()
-                  link
-              >
-                获取验证码
+  <AuthShell panel-label="创建视界巡警账号">
+    <header class="form-heading">
+      <p>账号注册</p>
+      <h2>创建视界巡警账号</h2>
+      <span>注册后即可登录视频监控与告警处置工作台</span>
+    </header>
+
+    <el-tabs v-model="activeName" class="auth-tabs" stretch @tab-change="clearFormError">
+      <el-tab-pane label="账号注册" name="account">
+        <el-form ref="accountFormRef" :model="userInfo" :rules="accountRules" label-position="top"
+                 class="auth-form" @submit.prevent="register">
+          <el-form-item label="账号" prop="account">
+            <el-input v-model.trim="userInfo.account" name="username" autocomplete="username"
+                      placeholder="5–10位字母或数字" size="large" @input="clearFormError" />
+          </el-form-item>
+          <el-form-item label="密码" prop="password">
+            <el-input v-model="userInfo.password" name="new-password" type="password" show-password
+                      autocomplete="new-password" placeholder="6–15位且不能包含空格" size="large" @input="clearFormError" />
+          </el-form-item>
+          <el-form-item label="确认密码" prop="confirmPassword">
+            <el-input v-model="userInfo.confirmPassword" name="confirm-password" type="password" show-password
+                      autocomplete="new-password" placeholder="请再次输入密码" size="large" @input="clearFormError" />
+          </el-form-item>
+          <p v-if="formError" class="form-error" role="alert" aria-live="polite">{{ formError }}</p>
+          <el-button native-type="submit" type="primary" size="large" class="submit-button"
+                     :loading="submitting" :disabled="submitting">
+            {{ submitting ? '正在创建…' : '创建账号' }}
+          </el-button>
+        </el-form>
+      </el-tab-pane>
+
+      <el-tab-pane label="邮箱注册" name="email">
+        <el-form ref="emailFormRef" :model="userInfo" :rules="emailRules" label-position="top"
+                 class="auth-form" @submit.prevent="register">
+          <el-form-item label="邮箱" prop="email">
+            <el-input v-model.trim="userInfo.email" name="email" type="email" autocomplete="email"
+                      placeholder="请输入邮箱" size="large" @input="clearFormError" />
+          </el-form-item>
+          <el-form-item label="验证码" prop="code">
+            <div class="code-row">
+              <el-input v-model.trim="userInfo.code" name="one-time-code" inputmode="numeric"
+                        maxlength="6" autocomplete="one-time-code" placeholder="6位验证码"
+                        size="large" @input="clearFormError" />
+              <el-button class="code-button" :loading="sendingCode"
+                         :disabled="sendingCode || remainingSeconds > 0" @click="getCode">
+                {{ sendingCode ? '发送中…' : codeButtonText }}
               </el-button>
             </div>
-          </el-tab-pane>
-        </el-tabs>
-      </div>
-      <div class="remenber">
-        <span><el-link type="primary" @click="goLogin()">注册完成，去登录</el-link></span>
-      </div>
-      <div class="login-btn">
-        <el-button type="primary" round size="large" style="width: 120px" class="log-btn" @click=register()>注册
-        </el-button>
-      </div>
-    </div>
-  </div>
+          </el-form-item>
+          <p v-if="codeHint" class="code-hint" aria-live="polite">{{ codeHint }}</p>
+          <p v-if="formError" class="form-error" role="alert" aria-live="polite">{{ formError }}</p>
+          <el-button native-type="submit" type="primary" size="large" class="submit-button"
+                     :loading="submitting" :disabled="submitting">
+            {{ submitting ? '正在创建…' : '使用邮箱注册' }}
+          </el-button>
+        </el-form>
+      </el-tab-pane>
+    </el-tabs>
+
+    <p class="login-link">已有账号？<el-link type="primary" @click="router.push('/login')">返回登录</el-link></p>
+  </AuthShell>
 </template>
 
 <script setup>
-import {ref, reactive} from 'vue'
-import {useRouter} from 'vue-router';
-import {ElMessage} from 'element-plus'
-import {registerWithAccount, registerWithEmail, sendCode} from '@/http/api/user'
+import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import AuthShell from '@/components/AuthShell.vue'
+import { useEmailCodeCountdown } from '@/composables/useEmailCodeCountdown'
+import { registerWithAccount, registerWithEmail, sendCode } from '@/http/api/user'
 
 const router = useRouter()
-const activeName = ref('first')
+const activeName = ref('account')
+const accountFormRef = ref(null)
+const emailFormRef = ref(null)
+const submitting = ref(false)
+const sendingCode = ref(false)
+const formError = ref('')
+const codeHint = ref('')
+const userInfo = reactive({ account: '', password: '', confirmPassword: '', email: '', code: '' })
+const { remainingSeconds, codeButtonText, startCountdown } = useEmailCodeCountdown(60)
 
-const userInfo = reactive({
-  account: '',
-  password: '',
-  email: '',
-  code: '',
-})
+const validatePasswordConfirmation = (rule, value, callback) => {
+  if (!value) callback(new Error('请再次输入密码'))
+  else if (value !== userInfo.password) callback(new Error('两次输入的密码不一致'))
+  else callback()
+}
+const accountRules = {
+  account: [
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9]{5,10}$/, message: '账号应为5–10位字母或数字', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { pattern: /^\S{6,15}$/, message: '密码应为6–15位且不能包含空格', trigger: 'blur' }
+  ],
+  confirmPassword: [{ validator: validatePasswordConfirmation, trigger: ['blur', 'change'] }]
+}
+const emailRules = {
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入有效邮箱', trigger: 'blur' }
+  ],
+  code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { pattern: /^\d{6}$/, message: '请输入6位数字验证码', trigger: 'blur' }
+  ]
+}
+
+const clearFormError = () => { formError.value = '' }
+const maskEmail = (email) => {
+  const [name, domain] = email.split('@')
+  const visible = name.slice(0, Math.min(2, name.length))
+  return `${visible}${'*'.repeat(Math.max(2, name.length - visible.length))}@${domain}`
+}
+
 const register = async () => {
-  if (activeName.value === 'first') {
-    try {
-      const response = await registerWithAccount(userInfo.account, userInfo.password);
-      if (response.data.success) {
-        ElMessage({
-          message: '注册成功',
-          type: 'success',
-          plain: true,
-        })
-        userInfo.account = '';
-        userInfo.password = '';
-      } else {
-        ElMessage({
-          message: '注册失败',
-          type: 'error',
-          plain: true,
-        })
-      }
-    } catch (error) {
-      console.error("注册失败" + error);
-      ElMessage({
-        message: '网络错误，注册失败',
-        type: 'error',
-        plain: true,
-      })
-    }
-  } else if (activeName.value === 'second') {
-    try {
-      const res = await registerWithEmail(userInfo.email, userInfo.code);
-      if (res.data.success) {
-        ElMessage({
-          message: '注册成功',
-          type: 'success',
-          plain: true,
-        })
-      } else {
-        ElMessage({
-          message: '信息输入错误，登录失败',
-          type: 'error',
-          plain: true,
-        })
-      }
-    } catch (error) {
-      console.error("注册失败" + error);
-      ElMessage({
-        message: '注册失败',
-        type: 'error',
-        plain: true,
-      })
-    }
-  }
-}
-//获取验证码
-const getCode = async () => {
+  if (submitting.value) return
+  const formRef = activeName.value === 'account' ? accountFormRef.value : emailFormRef.value
   try {
-    const response = await sendCode(userInfo.email);
-    console.log(response);
-
-    if (response.data.success) {
-      ElMessage({
-        message: '验证码发送成功，请查收',
-        type: 'success',
-        plain: true,
-      })
-    } else {
-      ElMessage({
-        message: '验证码发送失败，请查收',
-        type: 'error',
-        plain: true,
-      })
-    }
+    await formRef?.validate()
   } catch (error) {
-    console.log("发送失败：" + error);
-    ElMessage({
-      message: '网络错误',
-      type: 'error',
-      plain: true,
-    })
+    return
+  }
+
+  submitting.value = true
+  formError.value = ''
+  try {
+    const response = activeName.value === 'account'
+      ? await registerWithAccount(userInfo.account, userInfo.password)
+      : await registerWithEmail(userInfo.email, userInfo.code)
+    if (!response.data?.success) {
+      formError.value = response.data?.message || '注册失败，请检查输入后重试'
+      return
+    }
+    ElMessage.success('账号创建成功，请登录')
+    await router.push('/login')
+  } catch (error) {
+    formError.value = error.response?.data?.message || error.message || '注册请求失败，请检查网络和后端服务'
+  } finally {
+    submitting.value = false
   }
 }
 
-const goLogin = () => {
-  router.push('/login')
+const getCode = async () => {
+  if (sendingCode.value || remainingSeconds.value > 0) return
+  try {
+    await emailFormRef.value?.validateField('email')
+  } catch (error) {
+    return
+  }
+  sendingCode.value = true
+  formError.value = ''
+  try {
+    const response = await sendCode(userInfo.email)
+    if (!response.data?.success) throw new Error(response.data?.message || '验证码发送失败')
+    startCountdown()
+    codeHint.value = `验证码已发送至 ${maskEmail(userInfo.email)}，5分钟内有效。`
+    ElMessage.success('验证码已发送')
+  } catch (error) {
+    formError.value = error.response?.data?.message || error.message || '验证码发送失败，请稍后重试'
+  } finally {
+    sendingCode.value = false
+  }
 }
 </script>
 
 <style scoped>
-.login {
-  position: relative;
-  height: 100vh;
-  background-image: url(../assets/login.jpg);
-  filter: blur(0);
-}
-
-.login-box {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-around;
-  right: 15%;
-  top: 20%;
-  height: 68%;
-  width: 25%;
-  background-color: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
-  border: 3px solid rgba(255, 255, 255, 0.8);
-}
-
-.name {
-  font-size: 28px;
-  font-weight: 600;
-  margin-top: 15px;
-}
-
-.info {
-  width: 70%;
-}
-
-.input-box {
-  margin: 15px;
-}
-
-.getCode {
-  font-size: 10px;
-  height: 40px;
-  display: flex;
-  justify-content: end;
-  align-items: center;
-  padding-right: 15px;
+.form-heading { margin-bottom: 18px; }
+.form-heading > p { margin: 0 0 7px; color: #315a7e; font-size: 13px; font-weight: 650; }
+.form-heading h2 { margin: 0; color: #182f47; font-size: 28px; line-height: 1.4; font-weight: 650; }
+.form-heading > span { display: block; margin-top: 8px; color: #667085; font-size: 14px; line-height: 1.6; }
+.auth-tabs :deep(.el-tabs__header) { margin-bottom: 22px; }
+.auth-tabs :deep(.el-tabs__item) { height: 44px; color: #475467; font-size: 15px; }
+.auth-tabs :deep(.el-tabs__item.is-active) { color: #243e5c; font-weight: 600; }
+.auth-tabs :deep(.el-tabs__active-bar) { height: 2px; background: #243e5c; }
+.auth-form :deep(.el-form-item) { margin-bottom: 17px; }
+.auth-form :deep(.el-form-item__label) { padding-bottom: 8px; color: #344054; font-size: 15px; font-weight: 550; line-height: 1.4; }
+.auth-form :deep(.el-input__wrapper) { min-height: 48px; padding: 0 14px; border: 1px solid #7c8797; border-radius: 8px; box-shadow: none; transition: border-color 160ms, box-shadow 160ms; }
+.auth-form :deep(.el-input__wrapper:hover) { border-color: #526579; }
+.auth-form :deep(.el-input__wrapper.is-focus) { border-color: #315a7e; box-shadow: 0 0 0 3px rgba(49, 90, 126, .14); }
+.auth-form :deep(.el-input__inner) { color: #182230; font-size: 16px; }
+.auth-form :deep(.el-form-item.is-error .el-input__wrapper) { border-color: #b42318; }
+.auth-form :deep(.el-form-item__error) { padding-top: 5px; color: #b42318; font-size: 13px; }
+.code-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 126px; gap: 10px; }
+.code-button { height: 48px; border-color: #98a2b3; color: #243e5c; }
+.code-button:hover:not(:disabled), .code-button:focus-visible { border-color: #315a7e; color: #243e5c; background: #f4f7fa; }
+.code-hint { margin: -6px 0 14px; color: #475467; font-size: 13px; line-height: 1.5; }
+.form-error { margin: -4px 0 14px; padding: 10px 12px; color: #912018; background: #fef3f2; border: 1px solid #fecdca; border-radius: 7px; font-size: 13px; line-height: 1.5; }
+.submit-button { width: 100%; min-height: 48px; margin-top: 2px; border: 0; border-radius: 8px; background: #243e5c; font-size: 16px; font-weight: 600; }
+.submit-button:hover, .submit-button:focus-visible { background: #1b3049; }
+.login-link { display: flex; justify-content: center; align-items: center; gap: 5px; margin: 22px 0 0; color: #667085; font-size: 14px; }
+.login-link :deep(.el-link) { color: #315a7e; font-size: 14px; font-weight: 550; }
+@media (max-width: 480px) {
+  .form-heading h2 { font-size: 25px; }
+  .code-row { grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; }
+  .code-button { padding: 0 10px; font-size: 13px; }
 }
 </style>

@@ -1,0 +1,28 @@
+/* Shared by the dashboard and its same-origin Three.js iframe. */
+.rail-business-theme,
+.rail-workspace,
+.embedded {
+  --instrument-ground: #041a31;
+  --instrument-panel: #0b2a49;
+  --instrument-surface: #12395d;
+  --instrument-hover: #164970;
+  --instrument-slot: #061e36;
+  --instrument-text: #edf7ff;
+  --instrument-muted: #a8c9e4;
+  --instrument-accent: #70d7ff;
+  --instrument-action: #0862be;
+  --instrument-action-hover: #0870cc;
+  --instrument-edge: #285577;
+  --instrument-edge-lit: #527fa3;
+  --instrument-edge-dark: #04182b;
+  --instrument-divider: #254968;
+  --instrument-radius: 5px;
+  --instrument-cut: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  --instrument-shell-depth: inset 1px 1px rgb(224 239 240 / 13%), inset -1px -2px rgb(0 0 0 / 18%), 2px 3px 6px rgb(0 0 0 / 32%);
+  --instrument-recess: inset 1px 3px 6px rgb(0 0 0 / 55%), inset -1px -1px rgb(199 221 224 / 20%);
+  --instrument-lift: inset 1px 1px rgb(224 239 240 / 19%), inset -1px -2px rgb(0 0 0 / 24%), 2px 4px 8px rgb(0 0 0 / 38%);
+  --instrument-float: inset 1px 1px rgb(224 239 240 / 10%), 4px 7px 13px rgb(0 0 0 / 43%);
+  --instrument-overlay: rgb(10 44 75 / 94%);
+  --instrument-enamel: linear-gradient(155deg, #1474d3, #0755ae 72%);
+  --instrument-enamel-ink: #ffffff;
+}

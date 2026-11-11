@@ -1,4 +1,5 @@
 import axios from "axios";
+import store from "@/store";
 
 // 设置默认请求头
 axios.defaults.headers.post["Content-Type"] = "application/x-www-form-urlencoded";
@@ -18,9 +19,8 @@ http.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("token"); // 从本地存储获取 token
         if (token) {
-            config.headers["Authorization"] = `Bearer ${token}`; // Sa-Token 默认使用 Authorization 头
-            // 如果后端要求 token 在其他头中，改为：
-            // config.headers["sa-token"] = token;
+            // Sa-Token 默认从 sa-token header 或 cookie 读取，不读 Authorization Bearer
+            config.headers["sa-token"] = token;
         }
         return config;
     },
@@ -43,16 +43,18 @@ http.interceptors.response.use(
             if (status === 500 && data.code === "NOT_LOGIN") {
                 // token 无效或被顶下线
                 localStorage.removeItem("token");
+                store.dispatch('user/logout');
                 window.location.href = "/login"; // 跳转到登录页
                 return Promise.reject(new Error("未登录或 token 无效，请重新登录"));
             } else if (status === 401) {
                 // 未授权
                 localStorage.removeItem("token");
+                store.dispatch('user/logout');
                 window.location.href = "/login";
                 return Promise.reject(new Error("未授权，请登录"));
             } else {
                 // 其他 500 错误
-                return Promise.reject(new Error(data.msg || "服务器错误"));
+                return Promise.reject(new Error(data.msg || data.message || "服务器错误"));
             }
         } else {
             // 网络错误

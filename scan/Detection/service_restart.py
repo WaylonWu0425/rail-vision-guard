@@ -4,9 +4,8 @@ import time
 import subprocess
 import sys
 import signal
-import threading
 import logging
-import keyboard
+from pathlib import Path
 
 # 配置日志
 logging.basicConfig(
@@ -23,6 +22,8 @@ logger = logging.getLogger(__name__)
 running = True
 # 当前运行的进程
 current_process = None
+SERVICE_DIR = Path(__file__).resolve().parent
+SERVICE_FILE = SERVICE_DIR / "detection_service.py"
 
 def signal_handler(sig, frame):
     """处理Ctrl+C信号"""
@@ -32,30 +33,14 @@ def signal_handler(sig, frame):
     stop_service()
     sys.exit(0)
 
-def key_listener():
-    """监听键盘输入，当按下q时退出程序"""
-    global running
-    try:
-        keyboard.wait('q')  # 等待按下q键
-        logger.info("检测到q键被按下，正在停止服务...")
-        running = False
-        stop_service()
-        os._exit(0)  # 强制退出程序
-    except Exception as e:
-        logger.error(f"键盘监听错误: {e}")
-
 def start_service():
-    """启动后端服务"""
+    """启动统一的 YOLO 检测服务。"""
     global current_process
     try:
         logger.info("正在启动服务...")
-        # 使用subprocess启动后端服务
-        # 根据实际服务启动命令进行修改
         current_process = subprocess.Popen(
-            ["python", "Detection/CamVueScan.py"], 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.STDOUT,
-            universal_newlines=True
+            [sys.executable, str(SERVICE_FILE)],
+            cwd=str(SERVICE_DIR)
         )
         logger.info(f"服务已启动，PID: {current_process.pid}")
         return True
@@ -69,21 +54,18 @@ def stop_service():
     if current_process:
         try:
             logger.info(f"正在停止服务，PID: {current_process.pid}")
-            # 在Windows上使用taskkill强制终止进程及其子进程
-            subprocess.run(f"taskkill /F /T /PID {current_process.pid}", shell=True)
+            current_process.terminate()
+            try:
+                current_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                current_process.kill()
             current_process = None
             logger.info("服务已停止")
         except Exception as e:
             logger.error(f"停止服务失败: {e}")
 
-def restart_service():
-    """重启后端服务"""
-    stop_service()
-    time.sleep(1)  # 等待服务完全停止
-    return start_service()
-
 def main_loop():
-    """主循环，定时重启服务"""
+    """服务异常退出时自动恢复，不再按分钟破坏正在播放的检测流。"""
     global running
     
     # 第一次启动服务
@@ -93,33 +75,25 @@ def main_loop():
     
     try:
         while running:
-            # 等待60秒（1分钟）
-            for _ in range(60):
-                if not running:
-                    break
-                time.sleep(1)
-            
-            if running:
-                logger.info("定时重启时间到，准备重启服务...")
-                if not restart_service():
-                    logger.error("重启服务失败，尝试在10秒后重试")
+            exit_code = current_process.poll() if current_process else -1
+            if exit_code is not None:
+                logger.warning("检测服务退出（代码 %s），3秒后重新启动", exit_code)
+                time.sleep(3)
+                if running and not start_service():
                     time.sleep(10)
+            time.sleep(1)
     except Exception as e:
         logger.error(f"主循环发生错误: {e}")
     finally:
         stop_service()
 
 if __name__ == "__main__":
-    print("定时重启服务已启动，服务将每隔1分钟自动重启一次")
-    print("按下 'q' 键或 Ctrl+C 可以退出程序")
+    print("YOLO检测服务守护程序已启动")
+    print("按 Ctrl+C 可以退出程序")
     
     # 注册信号处理器，捕获Ctrl+C信号
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
-    # 启动键盘监听线程
-    keyboard_thread = threading.Thread(target=key_listener, daemon=True)
-    keyboard_thread.start()
     
     # 运行主循环
     main_loop() 

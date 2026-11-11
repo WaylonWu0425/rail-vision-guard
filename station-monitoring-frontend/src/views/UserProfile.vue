@@ -1,6 +1,13 @@
 <template>
   <div class="user">
+    <header class="profile-heading">
+      <span class="heading-kicker">账户设置 / ACCOUNT</span>
+      <h1>个人资料</h1>
+      <p>查看账户信息、更新头像与联系方式。</p>
+    </header>
+    <div class="profile-content">
     <div class="aside">
+        <div class="section-caption">账户头像</div>
         <div class="user-avatar">
             <el-upload
                 class="avatar-uploader"
@@ -13,10 +20,12 @@
                 <el-icon v-else class="avatar-uploader-icon"><Plus/></el-icon>
             </el-upload>
         </div>
+        <p class="avatar-hint">点击头像上传 JPG 图片，文件不超过 2 MB</p>
     </div>
     <div class="main">
+        <div class="section-caption">基本信息</div>
         <div class="form">
-            <el-form :model="form" label-width="auto" style="width: 35%">
+            <el-form :model="form" label-width="96px" class="profile-form">
                 <el-form-item label="昵称">
                     <el-input v-model="form.username" :disabled="!isEditMode"/>
                 </el-form-item>
@@ -55,6 +64,7 @@
             </el-form>
         </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -89,13 +99,15 @@ const uploadUserAvatar = async(file)=> {
 }
 
 const fetchAvatar = async()=> {
-    const response = await getAvatar(store.state.user.userInfo.avatar);
-    if (response.data instanceof Blob) {
-      imageUrl.value = URL.createObjectURL(response.data)
-    } else {
-      console.error('API 返回的数据不是 Blob:', response.data);
+    if (!store.state.user.userInfo.avatar) return;
+    try {
+      const response = await getAvatar(store.state.user.userInfo.avatar);
+      if (response.data instanceof Blob) {
+        imageUrl.value = URL.createObjectURL(response.data)
+      }
+    } catch (error) {
+      console.warn('头像暂时无法加载', error);
     }
-    
 }
 
 //用户信息表单
@@ -177,21 +189,48 @@ onMounted(() => {
 .user {
     width: 100%;
     height: 100%;
+    min-height: 0;
     display: flex;
+    flex-direction: column;
+    overflow: auto;
+    padding: 28px 32px;
+    background: #f3f7fc;
+    box-sizing: border-box;
+}
+.profile-heading { margin-bottom: 22px; }
+.heading-kicker { color: #2171bb; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+.profile-heading h1 { margin: 7px 0 6px; color: #15395d; font-size: 24px; line-height: 1.25; }
+.profile-heading p { margin: 0; color: #6d8197; font-size: 13px; }
+.profile-content {
+    display: grid;
+    grid-template-columns: minmax(260px, 32%) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 16px;
+    min-height: 540px;
+}
+.section-caption { color: #15395d; font-size: 16px; font-weight: 700; margin-bottom: 24px; }
+.aside, .main {
+    border: 1px solid #dbe6f2;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 8px 28px rgba(22, 67, 110, .045);
+    padding: 24px;
+    box-sizing: border-box;
 }
 .aside {
-    position: relative;
-    width: 35%;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 .user-avatar {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    top: 50%;
-    left: 50%;
-    width: 300px;
-    height: 300px;
+    width: 208px;
+    height: 208px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 0 0 8px #edf5fc;
+    margin: 28px 0 24px;
 }
+.avatar-hint { color: #8294a7; font-size: 12px; text-align: center; line-height: 1.6; }
 .avatar-uploader .el-upload {
   border: 1px dashed var(--el-border-color);
   border-radius: 6px;
@@ -208,8 +247,8 @@ onMounted(() => {
 .el-icon.avatar-uploader-icon {
   font-size: 28px;
   color: #8c939d;
-  width: 178px;
-  height: 178px;
+  width: 208px;
+  height: 208px;
   text-align: center;
   background-color: #adb0b5;
 }
@@ -217,20 +256,22 @@ onMounted(() => {
     flex: 1;
 }
 .avatar{
-    height: 300px;
-    width: 300px;
+    height: 208px;
+    width: 208px;
     object-fit: cover; /* 让图片按照比例填充 */
 }
 .main {
-    position: relative;
-    height: 100%;
-    /* background-color: green; */
+    min-width: 0;
 }
 .form {
     width: 100%;
-    position: absolute;
-    top: 50%;
-    left: 15%;
-    transform: translateY(-50%);
+    max-width: 620px;
+}
+.profile-form { width: 100%; }
+.profile-form :deep(.el-form-item) { margin-bottom: 22px; }
+.profile-form :deep(.el-input__wrapper), .profile-form :deep(.el-select__wrapper) { min-height: 38px; }
+@media (max-width: 800px) {
+    .user { padding: 18px; }
+    .profile-content { grid-template-columns: 1fr; }
 }
 </style>

@@ -3,7 +3,7 @@
     <!-- 导航栏 -->
     <header class="header">
       <div class="logo-section">
-        <i class="fas fa-video"></i>
+        <el-icon class="logo-icon"><VideoCamera /></el-icon>
         <h1>视频回放</h1>
       </div>
     </header>
@@ -15,36 +15,90 @@
         <div class="recordings-browser">
           <div class="sidebar-header">
             <div class="panel-header with-controls">
-              <h2>录像文件</h2>
-              <div class="controls">
-                <button class="btn refresh-btn" @click="getRecordings">
-                  <i class="fas fa-sync"></i>
+              <div class="panel-heading">
+                <div class="panel-title-row">
+                  <h2>录像文件</h2>
+                  <span class="recording-count">{{ filteredRecordings.length }} / {{ recordings.length }}</span>
+                </div>
+                <p>检索、导入并回放录像证据</p>
+              </div>
+              <div class="controls" aria-label="录像列表视图操作">
+                <button class="btn icon-btn refresh-btn" title="刷新录像列表" aria-label="刷新录像列表" @click="getRecordings">
+                  <el-icon><Refresh /></el-icon>
                 </button>
-                <!-- 视图变化：网格视图和列表视图 -->
-                <div class="view-toggle">
-                  <button class="btn" :class="{'active': viewMode === 'grid'}" @click="viewMode = 'grid'">
-                    <i class="fas fa-th"></i>
+                <div class="view-toggle" aria-label="切换录像展示方式">
+                  <button class="btn icon-btn" title="网格视图" aria-label="网格视图" :aria-pressed="viewMode === 'grid'" :class="{'active': viewMode === 'grid'}" @click="viewMode = 'grid'">
+                    <el-icon><Grid /></el-icon>
                   </button>
-                  <button class="btn" :class="{'active': viewMode === 'list'}" @click="viewMode = 'list'">
-                    <i class="fas fa-list"></i>
+                  <button class="btn icon-btn" title="列表视图" aria-label="列表视图" :aria-pressed="viewMode === 'list'" :class="{'active': viewMode === 'list'}" @click="viewMode = 'list'">
+                    <el-icon><List /></el-icon>
                   </button>
                 </div>
               </div>
             </div>
 
+            <input
+              ref="recordingImportInput"
+              type="file"
+              accept=".mp4,.webm,video/mp4,video/webm"
+              class="recording-import-input"
+              @change="importRecording"
+            >
+            <button class="btn import-btn" :disabled="importingRecording" @click="$refs.recordingImportInput.click()">
+              <el-icon><Upload /></el-icon>
+              <span>{{ importingRecording ? '正在导入录像…' : '导入本地录像' }}</span>
+            </button>
+
             <div class="filter-bar">
-              <div class="search-bar">
-                <i class="fas fa-search"></i>
-                <!-- 当用户输入时，自动触发filterRecordings方法 -->
-                <input type="text" placeholder="搜索录像..." v-model="searchQuery" @input="filterRecordings">
+              <div class="filter-section-heading">
+                <span>筛选条件</span>
+                <button v-if="hasActiveFilters" class="clear-filter-btn" type="button" @click="resetFilters">清除</button>
+              </div>
+
+              <label class="filter-field">
+                <span class="filter-label">文件名</span>
+                <span class="search-bar">
+                  <el-icon><Search /></el-icon>
+                  <input type="search" placeholder="搜索录像文件" v-model.trim="searchQuery" @input="filterRecordings">
+                </span>
+              </label>
+
+              <label class="filter-field">
+                <span class="filter-label">摄像头</span>
+                <select v-model="cameraFilter" class="recording-filter" @change="filterRecordings">
+                  <option value="">全部摄像头</option>
+                  <option v-for="cameraId in availableCameraIds" :key="cameraId" :value="String(cameraId)">摄像头 #{{ cameraId }}</option>
+                </select>
+              </label>
+
+              <div class="filter-field">
+                <span class="filter-label">录制时间</span>
+                <div class="time-range-fields">
+                  <label>
+                    <span>开始</span>
+                    <input v-model="fromTime" class="recording-filter" type="datetime-local" aria-label="录制开始时间" @change="filterRecordings">
+                  </label>
+                  <label>
+                    <span>结束</span>
+                    <input v-model="toTime" class="recording-filter" type="datetime-local" aria-label="录制结束时间" @change="filterRecordings">
+                  </label>
+                </div>
               </div>
             </div>
           </div>
 
           <div class="sidebar-scroll-container">
-            <div v-if="filteredRecordings.length === 0" class="no-recordings">
-              <i class="fas fa-film"></i>
-              <p>暂无符合条件的录像</p>
+            <div v-if="filteredRecordings.length === 0" class="no-recordings" :role="recordingLoadError ? 'alert' : 'status'">
+              <span class="empty-state-icon"><el-icon><VideoPlay /></el-icon></span>
+              <h3>{{ recordingLoadError ? '录像加载失败' : (hasActiveFilters ? '未找到匹配录像' : '暂无录像文件') }}</h3>
+              <p>{{ recordingLoadError || (hasActiveFilters ? '请调整或清除筛选条件后重试' : '请先在实时预览中开始并停止录制，录像上传后会显示在这里') }}</p>
+              <button v-if="recordingLoadError" class="btn retry-btn" @click="getRecordings">
+                <el-icon><Refresh /></el-icon> 重新加载
+              </button>
+              <button v-else-if="hasActiveFilters" class="btn retry-btn" @click="resetFilters">清除筛选条件</button>
+              <button v-else class="btn empty-primary-btn" @click="$router.push('/monitoringscreen')">
+                <el-icon><VideoCamera /></el-icon> 前往实时预览
+              </button>
             </div>
 
             <div v-else class="video-list-container">
@@ -59,16 +113,17 @@
                 >
                   <!-- 删除按钮 -->
                   <button class="delete-btn" @click.stop="confirmDelete(video)">
-                    <i class="fas fa-trash"></i>
+                    <el-icon><Delete /></el-icon>
                   </button>
                   <div class="thumbnail">
                     <img :src="getVideoThumbnail(video)" alt="视频缩略图">
-                    <span class="duration">{{ video.duration || '00:00:00' }}</span>
+                    <span class="duration">{{ video.sizeLabel }}</span>
                   </div>
                   <div class="video-info">
                     <div class="video-name">{{ formatVideoName(video.filename) }}</div>
                     <div class="video-meta">
                       <span class="video-time">{{ formatTime(video.date) }}</span>
+                      <span class="recording-source">{{ sourceLabel(video.source) }}</span>
                     </div>
                   </div>
                 </div>
@@ -85,7 +140,7 @@
                 >
                   <!-- 删除按钮 -->
                   <button class="delete-btn" @click.stop="confirmDelete(video)">
-                    <i class="fas fa-trash"></i>
+                    <el-icon><Delete /></el-icon>
                   </button>
                   <div class="video-thumbnail">
                     <img :src="getVideoThumbnail(video)" alt="视频缩略图">
@@ -93,7 +148,8 @@
                   <div class="video-details">
                     <div class="video-name">{{ formatVideoName(video.filename) }}</div>
                     <div class="video-meta">
-                      <span class="video-time"><i class="fas fa-clock"></i> {{ formatTime(video.date) }}</span>
+                      <span class="video-time"><el-icon><Clock /></el-icon> {{ formatTime(video.date) }}</span>
+                      <span class="recording-source">{{ sourceLabel(video.source) }}</span>
                     </div>
                   </div>
                 </div>
@@ -107,7 +163,7 @@
       <section class="content-area" :class="{'full-width': sidebarCollapsed}">
         <div class="playback-view">
           <div v-if="!selectedVideo" class="no-video-selected">
-            <i class="fas fa-film"></i>
+            <el-icon><VideoPlay /></el-icon>
             <p>请从左侧选择一个录像进行播放</p>
           </div>
 
@@ -116,7 +172,7 @@
               <h2>{{ getPlayerTitle() }}</h2>
               <div class="controls">
                 <button class="btn close-btn" @click="closeVideo">
-                  <i class="fas fa-times"></i> 关闭
+                  <el-icon><Close /></el-icon> 关闭
                 </button>
               </div>
             </div>
@@ -146,12 +202,16 @@
 
             <div class="video-details">
               <div class="detail-item">
-                <i class="fas fa-calendar"></i>
+                <el-icon><Calendar /></el-icon>
                 <span>{{ selectedVideo?.date || '未知日期' }}</span>
               </div>
               <div class="detail-item">
-                <i class="fas fa-file"></i>
+                <el-icon><Document /></el-icon>
                 <span>{{ selectedVideo?.filename || '未知文件名' }}</span>
+              </div>
+              <div class="detail-item">
+                <el-icon><VideoCamera /></el-icon>
+                <span>{{ recordingContextLabel(selectedVideo) }}</span>
               </div>
             </div>
           </div>
@@ -161,15 +221,20 @@
 
     <!-- 消息提示 -->
     <div v-if="message" class="message-toast" :class="messageType">
-      <i class="fas" :class="getMessageIcon()"></i>
+      <el-icon class="message-icon"><component :is="getMessageIcon()" /></el-icon>
       {{ message }}
     </div>
   </div>
 </template>
 
 <script>
-// 引入API基础URL - 如果需要的话可以保留
-const API_BASE_URL = 'http://localhost:4000/api';
+// 录像数据走系统后端（经 /api 代理到 8081 的 RecordingController），不再依赖原独立 node 视频服务
+import { getRecordingList, deleteRecording, uploadRecording } from '@/http/api/recording.js';
+import {
+  Calendar, CircleCheckFilled, CircleCloseFilled, Clock, Close, Delete, Document,
+  Grid, InfoFilled, List, Refresh, Search, Upload, VideoCamera, VideoPlay, WarningFilled
+} from '@element-plus/icons-vue';
+const API_BASE_URL = '/api/recording';
 
 // 声明videojs为全局变量，避免ESLint报错
 /* global videojs */
@@ -177,6 +242,10 @@ const API_BASE_URL = 'http://localhost:4000/api';
 
 export default {
   name: 'App',
+  components: {
+    Calendar, CircleCheckFilled, CircleCloseFilled, Clock, Close, Delete, Document,
+    Grid, InfoFilled, List, Refresh, Search, Upload, VideoCamera, VideoPlay, WarningFilled
+  },
   data() {
     return {
       // 视图控制
@@ -188,24 +257,24 @@ export default {
       // 录像列表和过滤
       recordings: [],
       filteredRecordings: [],
+      recordingLoadError: '',
+      importingRecording: false,
       selectedVideo: null,
       searchQuery: '',
+      cameraFilter: '',
+      fromTime: '',
+      toTime: '',
 
       // 消息提示
       message: '',
       messageType: 'info',
       messageTimeout: null,
 
-      // Video.js播放器
-      player: null,
       videoLoading: false,
       isSelectingVideo: false,
-      hlsInstance: null,
 
-      // 视频源目录 - 实际项目中应由服务器提供访问
-      videoDirectory: 'D:/camera_test/hls_output',
-      // HTTP服务器URL前缀，用于替换本地路径
-      videoServerUrl: 'http://localhost:4000/videos',
+      // 录像流式播放地址前缀（后端 RecordingController，支持 Range 拖动进度条）
+      videoServerUrl: '/api/recording/stream',
     }
   },
 
@@ -213,23 +282,12 @@ export default {
     // 组件加载后立即获取录像列表
     this.getRecordings();
 
-    // 加载字体图标
-    this.loadFontAwesome();
-
-    // 加载HLS.js库
-    this.loadHlsLibrary();
-
     // 恢复用户侧边栏偏好
     const savedSidebarState = localStorage.getItem('sidebarCollapsed');
     if (savedSidebarState !== null) {
       this.sidebarCollapsed = savedSidebarState === 'true';
     }
 
-    // 确保侧边栏滚动容器正确初始化
-    this.$nextTick(() => {
-      // 修复滚动问题
-      this.fixScrolling();
-    });
   },
 
   beforeUnmount() {
@@ -242,97 +300,105 @@ export default {
     this.closeVideo();
   },
 
+  computed: {
+    availableCameraIds() {
+      return [...new Set(this.recordings.map(video => video.cameraId).filter(id => id != null))]
+          .sort((a, b) => Number(a) - Number(b));
+    },
+    hasActiveFilters() {
+      return Boolean(this.searchQuery || this.cameraFilter || this.fromTime || this.toTime);
+    }
+  },
+
   methods: {
+    resetFilters() {
+      this.searchQuery = '';
+      this.cameraFilter = '';
+      this.fromTime = '';
+      this.toTime = '';
+      this.filterRecordings();
+    },
+    async importRecording(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      if (!/\.(mp4|webm)$/i.test(file.name)) {
+        this.showMessage('只能导入 MP4 或 WebM 录像', 'error');
+        event.target.value = '';
+        return;
+      }
+      if (file.size > 200 * 1024 * 1024) {
+        this.showMessage('录像超过服务器单文件 200 MB 限制', 'error');
+        event.target.value = '';
+        return;
+      }
+      this.importingRecording = true;
+      try {
+        const response = await uploadRecording(file, file.name, { source: 'import' });
+        if (!response.data?.success) throw new Error(response.data?.msg || '导入失败');
+        await this.getRecordings();
+        this.showMessage('录像已导入，可以在列表中播放', 'success');
+      } catch (error) {
+        this.showMessage(`导入失败：${error.message || '服务器错误'}`, 'error');
+      } finally {
+        this.importingRecording = false;
+        event.target.value = '';
+      }
+    },
     // 切换侧边栏显示/隐藏
     toggleSidebar() {
       // 功能已禁用
       console.log('侧边栏切换功能已禁用');
     },
 
-    // 加载HLS.js库
-    loadHlsLibrary() {
-      if (window.Hls) {
-        console.log('HLS.js已加载');
-        return Promise.resolve();
-      }
-
-      return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
-        script.async = true;
-        script.onload = () => {
-          console.log('HLS.js加载成功');
-          resolve();
-        };
-        script.onerror = () => {
-          console.error('HLS.js加载失败');
-          this.showMessage('HLS视频库加载失败，可能影响视频播放', 'error');
-          reject();
-        };
-        document.head.appendChild(script);
-      });
-    },
-
-    // 加载Video.js库
-    loadVideoJs() {
-      if (window.videojs) {
-        console.log('Video.js已加载');
-        return Promise.resolve();
-      }
-
-      return new Promise((resolve, reject) => {
-        // 加载CSS
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://vjs.zencdn.net/7.20.3/video-js.css';
-        document.head.appendChild(link);
-
-        // 加载JS
-        const script = document.createElement('script');
-        script.src = 'https://vjs.zencdn.net/7.20.3/video.min.js';
-        script.async = true;
-        script.onload = () => {
-          console.log('Video.js加载成功');
-          resolve();
-        };
-        script.onerror = () => {
-          console.error('Video.js加载失败');
-          this.showMessage('视频播放库加载失败', 'error');
-          reject();
-        };
-        document.head.appendChild(script);
-      });
-    },
-
-    // 加载Font Awesome图标库
-    loadFontAwesome() {
-      const script = document.createElement('script');
-      script.src = 'https://kit.fontawesome.com/a076d05399.js';
-      script.crossOrigin = 'anonymous';
-      document.head.appendChild(script);
-    },
-
-    // 获取录像列表 - 直接读取指定目录
+    // 获取录像列表 - 从系统后端 RecordingController 读取
     async getRecordings() {
       try {
-        const response = await fetch(`${API_BASE_URL}/list-videos`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
+        const response = await getRecordingList();
+        const data = response.data;
+        this.recordingLoadError = '';
         this.recordings = data.map(video => ({
           filename: video.filename,
           path: `${this.videoServerUrl}/${encodeURIComponent(video.filename)}`,
-          date: video.mtime || '',
+          date: video.startedAt || this.formatDate(video.mtime),
+          startedAt: video.startedAt || null,
+          endedAt: video.endedAt || null,
+          cameraId: video.cameraId ?? null,
+          source: video.source || 'history',
+          mtime: Number(video.mtime || 0),
           thumbnail: video.thumbnail || '',
-          duration: video.duration || ''
+          sizeLabel: this.formatSize(video.size)
         }));
         this.filterRecordings();
+        const requestedFilename = this.$route.query.recording;
+        if (requestedFilename) {
+          const requested = this.recordings.find(video => video.filename === requestedFilename);
+          if (requested) this.selectVideo(requested);
+        }
         this.showMessage('成功加载视频列表', 'success');
       } catch (error) {
         console.error('获取录像列表失败:', error);
-        this.showMessage('获取录像列表失败', 'error');
+        this.recordingLoadError = `获取录像列表失败：${error.message || '请检查登录状态和后端服务'}`;
+        this.showMessage(this.recordingLoadError, 'error');
         this.recordings = [];
         this.filterRecordings();
       }
+    },
+
+    // 毫秒时间戳 → yyyyMMdd_HHmmss（与 formatTime 的解析格式保持一致）
+    formatDate(ms) {
+      if (!ms) return '';
+      const d = new Date(ms);
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    },
+
+    // 字节数 → 可读大小（显示在时长角标位置）
+    formatSize(bytes) {
+      if (!bytes && bytes !== 0) return '';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
     },
 
     // 将本地文件路径转换为可访问的HTTP URL
@@ -341,32 +407,6 @@ export default {
       const filename = filePath.split(/[\/\\]/).pop();
       // 构建HTTP URL
       return `${this.videoServerUrl}/${encodeURIComponent(filename)}`;
-    },
-
-    // 加载测试数据（开发阶段使用，实际项目中可删除）
-    loadTestData() {
-      // 模拟10个m3u8视频文件
-      const videos = [];
-      const today = new Date();
-
-      for (let i = 0; i < 10; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
-        const timeStr = `${String(Math.floor(Math.random() * 24)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`;
-        const filename = `video_${dateStr}_${timeStr}.m3u8`;
-
-        videos.push({
-          filename: filename,
-          path: `${this.videoServerUrl}/${filename}`,
-          date: `${dateStr}_${timeStr}`,
-          thumbnail: '',
-          duration: `00:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`
-        });
-      }
-
-      this.recordings = videos;
-      this.filterRecordings();
     },
 
     // 从文件名中提取日期
@@ -381,16 +421,19 @@ export default {
 
     // 过滤录像列表
     filterRecordings() {
-      if (!this.searchQuery) {
-        // 没有搜索条件，按日期从新到旧排序
-        this.filteredRecordings = [...this.recordings].sort((a, b) => b.date.localeCompare(a.date));
-      } else {
-        // 按搜索词过滤视频文件名
-        const query = this.searchQuery.toLowerCase();
-        this.filteredRecordings = this.recordings
-            .filter(video => video.filename.toLowerCase().includes(query))
-            .sort((a, b) => b.date.localeCompare(a.date));
-      }
+      const query = this.searchQuery.trim().toLowerCase();
+      const from = this.fromTime ? new Date(this.fromTime).getTime() : null;
+      const to = this.toTime ? new Date(this.toTime).getTime() : null;
+      this.filteredRecordings = this.recordings
+          .filter(video => {
+            if (query && !video.filename.toLowerCase().includes(query)) return false;
+            if (this.cameraFilter && String(video.cameraId) !== this.cameraFilter) return false;
+            const recordedAt = this.recordingTimestamp(video);
+            if (from && (!recordedAt || recordedAt < from)) return false;
+            if (to && (!recordedAt || recordedAt > to)) return false;
+            return true;
+          })
+          .sort((a, b) => this.recordingTimestamp(b) - this.recordingTimestamp(a));
 
       // 在DOM更新后调整滚动位置
       this.$nextTick(() => {
@@ -402,6 +445,28 @@ export default {
       });
     },
 
+    recordingTimestamp(video) {
+      const value = video?.startedAt;
+      const parsed = value ? new Date(value).getTime() : 0;
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : Number(video?.mtime || 0);
+    },
+
+    sourceLabel(source) {
+      if (source === 'manual') return '手动录制';
+      if (source === 'import') return '本地导入';
+      return '历史录像';
+    },
+
+    recordingContextLabel(video) {
+      if (!video) return '';
+      if (video.source === 'history') return '历史录像：未记录摄像头和录制时间';
+      const camera = video.cameraId != null ? `摄像头 #${video.cameraId}` : '未关联摄像头';
+      const period = video.startedAt && video.endedAt
+          ? `${new Date(video.startedAt).toLocaleString()} 至 ${new Date(video.endedAt).toLocaleTimeString()}`
+          : '录制时间未完整记录';
+      return `${camera} · ${period} · ${this.sourceLabel(video.source)}`;
+    },
+
     // 格式化视频名称(去除日期和扩展名)
     formatVideoName(filename) {
       if (!filename) return '';
@@ -409,8 +474,9 @@ export default {
       // 移除扩展名
       let name = filename.replace(/\.[^/.]+$/, "");
 
-      // 如果名称包含日期时间格式（如video_20230502_121520），则移除
-      name = name.replace(/^video_\d{8}_\d{6}_?/, "");
+      // 如果名称包含日期时间格式（如record_20260920_204500_xxxx / video_20230502_121520），则移除前缀
+      name = name.replace(/^(record|video)_\d{8}_\d{6}_[a-f0-9]{0,4}_?/, "");
+      name = name.replace(/^(record|video)_\d{8}_\d{6}_?/, "");
 
       // 将下划线替换为空格
       name = name.replace(/_/g, " ");
@@ -474,6 +540,11 @@ export default {
     formatTime(dateTimeStr) {
       if (!dateTimeStr) return '';
 
+      if (String(dateTimeStr).includes('T')) {
+        const date = new Date(dateTimeStr);
+        return Number.isNaN(date.getTime()) ? dateTimeStr : date.toLocaleString();
+      }
+
       // 如果是带下划线的日期时间(如20230502_121520)，转换为时间格式
       if (dateTimeStr.includes('_')) {
         const timeStr = dateTimeStr.split('_')[1];
@@ -489,13 +560,13 @@ export default {
     getMessageIcon() {
       switch (this.messageType) {
         case 'success':
-          return 'fa-check-circle';
+          return CircleCheckFilled;
         case 'error':
-          return 'fa-exclamation-circle';
+          return CircleCloseFilled;
         case 'warning':
-          return 'fa-exclamation-triangle';
+          return WarningFilled;
         default:
-          return 'fa-info-circle';
+          return InfoFilled;
       }
     },
 
@@ -603,17 +674,13 @@ export default {
     },
     async deleteVideo(video) {
       try {
-        const res = await fetch('http://localhost:4000/api/delete-video', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({filename: video.filename})
-        });
-        const data = await res.json();
+        const res = await deleteRecording(video.filename);
+        const data = res.data;
         if (data.success) {
           this.showMessage('删除成功', 'success');
           this.getRecordings(); // 刷新列表
         } else {
-          this.showMessage(data.error || '删除失败', 'error');
+          this.showMessage(data.error || data.msg || '删除失败', 'error');
         }
       } catch (e) {
         this.showMessage('删除请求失败', 'error');
@@ -625,9 +692,9 @@ export default {
 
 <style>
 /* 全局CSS变量 */
-:root {
+.app-container {
   --header-height: 60px;
-  --sidebar-width: 320px;
+  --sidebar-width: 368px;
   --primary-color: #4a6cf7;
   --primary-gradient: linear-gradient(135deg, #4a6cf7, #6c8eef);
   --secondary-color: #38d9a9;
@@ -648,35 +715,38 @@ export default {
 }
 
 /* 全局样式重置 */
-* {
+.app-container,
+.app-container *,
+.app-container *::before,
+.app-container *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
 /* 添加全局滚动样式 */
-.scrollable {
+.app-container .scrollable {
   overflow: auto !important;
   scrollbar-width: thin;
   scrollbar-color: var(--primary-color) var(--light-grey);
   -webkit-overflow-scrolling: touch;
 }
 
-.scrollable::-webkit-scrollbar {
+.app-container .scrollable::-webkit-scrollbar {
   width: 6px;
 }
 
-.scrollable::-webkit-scrollbar-track {
+.app-container .scrollable::-webkit-scrollbar-track {
   background: var(--light-grey);
   border-radius: 4px;
 }
 
-.scrollable::-webkit-scrollbar-thumb {
+.app-container .scrollable::-webkit-scrollbar-thumb {
   background: var(--primary-gradient);
   border-radius: 4px;
 }
 
-body {
+.app-container {
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
   color: var(--text-color);
   background-color: var(--background-color);
@@ -688,7 +758,8 @@ body {
 /* 基本容器 */
 .app-container {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background-color: var(--background-color);
@@ -715,7 +786,7 @@ body {
   gap: 14px;
 }
 
-.logo-section i {
+.logo-icon {
   font-size: 26px;
   background: var(--primary-gradient);
   -webkit-background-clip: text;
@@ -733,14 +804,14 @@ body {
 .main-content {
   display: flex;
   flex: 1;
-  height: calc(100vh - var(--header-height));
+  min-height: 0;
   overflow: hidden;
 }
 
 /* 侧边栏样式 */
 .sidebar {
   width: var(--sidebar-width);
-  background-color: var(--panel-bg);
+  background-color: #fbfcff;
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -765,30 +836,120 @@ body {
 
 .sidebar-header {
   flex-shrink: 0;
-  padding: 16px 16px 0;
+  padding: 18px;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 0;
 }
 
 .panel-header.with-controls {
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-color);
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 0;
+  border-bottom: 0;
+  margin-bottom: 16px;
 }
 
 .panel-header h2 {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-color);
+  line-height: 1.35;
+}
+
+.panel-heading {
+  min-width: 0;
+}
+
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recording-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: var(--primary-color);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.panel-heading p {
+  margin-top: 4px;
+  color: var(--text-light);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .controls {
   display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.recording-import-input {
+  display: none;
+}
+
+.import-btn {
+  width: 100%;
+  min-height: 40px;
   gap: 8px;
+  white-space: nowrap;
+  color: #fff;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  font-weight: 600;
+  box-shadow: 0 5px 12px rgba(74, 108, 247, 0.18);
+}
+
+.import-btn:hover {
+  color: #fff;
+  background: #3d5ee8;
+  border-color: #3d5ee8;
+}
+
+.import-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.recording-filter {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--text-color);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recording-filter:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.12);
+}
+
+.recording-source {
+  margin-left: 8px;
+  color: var(--text-light);
+  font-size: 12px;
 }
 
 .btn {
@@ -799,10 +960,17 @@ body {
   padding: 6px 10px;
   cursor: pointer;
   font-size: 14px;
-  transition: all var(--transition-speed) ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.btn:focus-visible,
+.clear-filter-btn:focus-visible,
+.search-bar:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.16);
 }
 
 .btn:hover {
@@ -818,8 +986,8 @@ body {
 }
 
 .refresh-btn {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
 }
 
 .refresh-btn i {
@@ -833,35 +1001,75 @@ body {
 .view-toggle {
   display: flex;
   background: var(--light-grey);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 2px;
 }
 
 .view-toggle .btn {
   border: none;
   border-radius: 4px;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
 }
 
 .filter-bar {
-  margin-bottom: 15px;
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #e7ecf4;
+  border-radius: 12px;
+  background: #f7f9fd;
+}
+
+.filter-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 22px;
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.clear-filter-btn {
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--primary-color);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.filter-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.filter-label {
+  color: #526176;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .search-bar {
   display: flex;
   align-items: center;
-  background: var(--light-grey);
+  min-height: 40px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 8px 12px;
-  transition: all var(--transition-speed) ease;
+  padding: 0 11px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .search-bar:focus-within {
-  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+  border-color: var(--primary-color);
 }
 
-.search-bar i {
+.search-bar :deep(.el-icon) {
   color: var(--text-light);
   margin-right: 8px;
 }
@@ -879,17 +1087,45 @@ body {
   color: var(--text-light);
 }
 
+.time-range-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.time-range-fields label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--text-light);
+  font-size: 11px;
+}
+
 /* 修正滚动容器样式 */
 .sidebar-scroll-container {
   flex: 1;
   overflow-y: auto !important;
-  max-height: calc(100vh - 180px);
   display: flex;
   flex-direction: column;
   position: relative;
   min-height: 0;
-  background-color: var(--panel-bg);
-  padding: 0 16px 16px;
+  background-color: #fbfcff;
+  padding: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.sidebar-scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
 }
 
 /* 内容区域样式 */
@@ -1067,7 +1303,7 @@ body {
   margin-top: 3px;
 }
 
-.video-time i {
+.video-time :deep(.el-icon) {
   font-size: 11px;
 }
 
@@ -1081,35 +1317,21 @@ body {
 }
 
 .no-video-selected {
-  background-color: rgba(0, 0, 0, 0.02);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
   border-radius: var(--border-radius);
   padding: 40px 20px;
-  height: 500px;
+  height: 100%;
+  min-height: 460px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.no-video-selected i {
-  font-size: 80px;
-  background: linear-gradient(135deg, #ddd, #aaa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 30px;
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0);
-  }
+.no-video-selected :deep(.el-icon) {
+  font-size: 62px;
+  color: #65758b;
+  margin-bottom: 22px;
 }
 
 .no-video-selected p {
@@ -1122,32 +1344,63 @@ body {
 }
 
 .no-recordings {
+  flex: 1;
+  min-height: 270px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 50px 0;
+  padding: 32px 22px;
   color: var(--text-light);
-  background-color: rgba(0, 0, 0, 0.02);
-  border-radius: var(--border-radius);
-  margin: 10px 0;
-  height: calc(100% - 20px);
+  background: var(--panel-bg);
+  border: 1px dashed #d5deeb;
+  border-radius: 14px;
+  text-align: center;
 }
 
-.no-recordings i {
-  font-size: 70px;
-  margin-bottom: 25px;
-  background: linear-gradient(135deg, #ddd, #aaa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  opacity: 0.8;
-  animation: float 3s ease-in-out infinite;
+.empty-state-icon {
+  width: 64px;
+  height: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  border-radius: 18px;
+  background: #eef3ff;
+  color: var(--primary-color);
+}
+
+.empty-state-icon :deep(.el-icon) {
+  font-size: 34px;
+}
+
+.no-recordings h3 {
+  margin-bottom: 7px;
+  font-size: 16px;
+  color: var(--text-color);
+  font-weight: 700;
 }
 
 .no-recordings p {
-  font-size: 18px;
-  color: var(--text-color);
-  font-weight: 500;
+  max-width: 270px;
+  font-size: 13px;
+  color: var(--text-light);
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+.retry-btn {
+  margin-top: 18px;
+}
+
+.empty-primary-btn {
+  margin-top: 18px;
+  gap: 7px;
+  padding: 8px 14px;
+  color: var(--primary-color);
+  background: #eef3ff;
+  border-color: #dbe5ff;
+  font-weight: 600;
 }
 
 /* 视频播放区域 - 改进布局 */
@@ -1275,7 +1528,7 @@ body {
   color: var(--text-color);
 }
 
-.detail-item i {
+.detail-item :deep(.el-icon) {
   color: var(--primary-color);
   font-size: 15px;
 }
@@ -1328,28 +1581,65 @@ body {
   color: white;
 }
 
-.message-toast i {
+.message-icon {
   font-size: 18px;
 }
 
 /* 响应式调整，确保在不同屏幕尺寸下滚动正常 */
-@media (max-width: 1200px) {
+@media (max-width: 1024px) {
   .main-content {
     flex-direction: column;
+    overflow-y: auto;
   }
 
   .sidebar {
     width: 100%;
-    max-height: 320px;
+    height: auto;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-color);
   }
 
   .sidebar.collapsed {
-    max-height: 40px;
     width: 100%;
   }
 
+  .recordings-browser {
+    height: auto;
+  }
+
+  .sidebar-header {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(420px, 1.4fr);
+    grid-template-rows: auto auto;
+    gap: 12px 18px;
+  }
+
+  .panel-header.with-controls {
+    margin-bottom: 0;
+  }
+
+  .import-btn {
+    align-self: end;
+  }
+
+  .filter-bar {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    margin-top: 0;
+  }
+
+  .filter-section-heading,
+  .filter-field:first-of-type,
+  .filter-field:last-child {
+    grid-column: 1 / -1;
+  }
+
   .sidebar-scroll-container {
-    height: calc(100% - 120px);
+    flex: none;
+    min-height: 220px;
+    max-height: 340px;
   }
 
   .video-grid {
@@ -1373,6 +1663,52 @@ body {
 
   .logo-section {
     margin-bottom: 5px;
+  }
+
+  .sidebar-header {
+    display: block;
+    padding: 16px;
+  }
+
+  .panel-header.with-controls {
+    margin-bottom: 14px;
+  }
+
+  .filter-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin-top: 12px;
+  }
+
+  .filter-section-heading,
+  .filter-field:first-of-type,
+  .filter-field:last-child {
+    grid-column: auto;
+  }
+
+  .time-range-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-scroll-container {
+    min-height: 210px;
+    max-height: 320px;
+    padding: 14px 16px 16px;
+  }
+
+  .no-recordings {
+    min-height: 190px;
+    padding: 22px 18px;
+  }
+
+  .empty-state-icon {
+    width: 52px;
+    height: 52px;
+    margin-bottom: 12px;
+  }
+
+  .empty-state-icon :deep(.el-icon) {
+    font-size: 28px;
   }
 
   .video-grid {
@@ -1440,4 +1776,12 @@ body {
 .video-card, .video-item {
   position: relative;
 }
+
+/* 回放页：文件检索与证据播放使用清楚的左右分工 */
+.app-container { background:linear-gradient(135deg,#edf4f8,#f8fafc); }
+.header { min-height:66px;background:linear-gradient(90deg,#f7fbfe,#fff);box-shadow:none;border-bottom:1px solid #cadfe9; }
+.header h1 { color:#173d5b;font-size:22px;font-weight:750; }
+.sidebar { width:clamp(320px,27vw,420px);background:#f8fbfd;border-right:1px solid #cfdfeb;box-shadow:none; }
+.sidebar-header { background:#fff;border-bottom:1px solid #dceaf1; }
+@media (max-width:1000px) { .sidebar { width:320px; } }
 </style> 

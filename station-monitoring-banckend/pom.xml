@@ -85,11 +85,11 @@
             <artifactId>sa-token-spring-boot-starter</artifactId>
             <version>1.40.0</version>
         </dependency>
-        <dependency>
-            <groupId>cn.dev33</groupId>
-            <artifactId>sa-token-redis</artifactId>
-            <version>1.40.0</version>
-        </dependency>
+        <!--
+            演示环境不保证安装 Redis。Sa-Token 保持默认的进程内会话存储，
+            从而保证账号登录不依赖 localhost:6379；RedisTemplate 仍用于可选
+            的验证码和统计缓存功能。
+        -->
 
         <!-- Redis 相关 -->
         <dependency>
@@ -109,6 +109,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

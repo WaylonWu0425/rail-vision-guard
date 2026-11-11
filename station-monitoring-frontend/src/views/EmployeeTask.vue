@@ -1055,30 +1055,38 @@ onMounted(() => {
 
 <style scoped>
 .employee-task-container {
-  padding: 20px;
+  padding: 24px;
   height: 100%;
+  min-height: 0;
   width: 100%;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  gap: 14px;
+  background: #f3f7fc;
+  overflow: auto;
 }
 
 .page-title {
-  font-size: 1.8rem;
-  font-weight: bold;
-  margin-bottom: 2%;
-  height: 5%;
-  color: #303133;
-  border-left: 4px solid #409eff;
-  padding-left: 15px;
+  font-size: 23px;
+  font-weight: 700;
+  margin: 0;
+  height: auto;
+  color: #15395d;
 }
 
 .action-bar {
   display: flex;
   align-items: center;
-  height: 5%;
-  margin-bottom: 2%;
+  min-height: 60px;
+  height: auto;
+  margin: 0;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid #dbe6f2;
+  border-radius: 10px;
+  background: #fff;
 }
 
 .search-input {
@@ -1098,17 +1106,20 @@ onMounted(() => {
 
 .list {
   flex: 1;
-  height: 80%;
+  min-height: 420px;
+  height: auto;
   background-color: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  border: 1px solid #dbe6f2;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(22, 67, 110, .045);
   display: flex;
   flex-direction: column;
+  padding: 8px 16px 16px;
 }
 
 .tabs-header {
-  height: 5%;
-  margin-bottom: 2%;
+  height: auto;
+  margin-bottom: 8px;
 }
 
 /* 优化Element Plus标签显示 */

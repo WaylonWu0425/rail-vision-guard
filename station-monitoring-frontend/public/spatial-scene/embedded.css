@@ -1,0 +1,193 @@
+.embedded html,.embedded body{width:100%;height:100%;overflow:hidden}
+.embedded .app{min-width:0;min-height:0;width:100%;height:100dvh;padding:0;overflow:hidden;background:transparent}
+.embedded .header,.embedded .navigation,.embedded .left-column,.embedded .right-column,.embedded .trend-panel,.embedded footer{display:none!important}
+.embedded .workspace{display:block;flex:1;min-height:0;width:100%;height:100%;padding:0;overflow:hidden}
+.embedded .center-column{display:block;width:100%;height:100%;min-height:0}
+.embedded .stage{display:block;width:100%;height:100%;min-height:0}
+.embedded .scene-title{display:none}
+.embedded .scene-tools{bottom:23px}
+.embedded .scene-hint{bottom:5px}
+.embedded .selection{bottom:82px}
+.embedded body{background:transparent!important}
+.embedded .stage{background:transparent!important}
+.embedded .scene-hint{display:none}
+
+.embedded .scene-tools {background:var(--instrument-panel);border:1px solid var(--instrument-edge);box-shadow:none;border-radius:6px}
+.embedded .scene-tools button {font-size:11px}
+.embedded .scene-tools button.selected {background:#133e66;border-color:#59cbff}
+.embedded .selection {max-width:220px;background:var(--instrument-panel);border-color:var(--instrument-edge);box-shadow:none}
+.embedded .spatial-pin {background:#0b2d4c;border-color:#59cbff;box-shadow:none}
+.embedded .spatial-pin[data-state="online"] .pin-ring {color:#54a68a}
+.embedded .spatial-pin[data-state="offline"] .pin-ring,
+.embedded .spatial-pin[data-state="unknown"] .pin-ring {color:#91a0aa}
+
+/* Spatial labels use projected anchors and a separate SVG guide layer. */
+.marker-guides {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+.marker-guides line { stroke: #9bb1b8; stroke-width: 1px; opacity: .72; }
+.marker-guides circle { fill: var(--instrument-muted); stroke: var(--instrument-panel); stroke-width: 1px; }
+.marker-guides .active { stroke: #77c2ca; }
+.marker-guides circle.active { fill: var(--instrument-accent); }
+.stage .spatial-pin,
+.stage .zone-pin {
+  transform: none;
+  max-width: 168px;
+  min-height: 30px;
+  background: var(--instrument-surface);
+  border: 1px solid #4b606c;
+  border-radius: 5px;
+  box-shadow: none;
+  color: #edf7ff;
+}
+.stage .spatial-pin::after { display: none; }
+.stage .spatial-pin { padding: 5px 8px; gap: 7px; }
+.stage .zone-pin { padding: 5px 8px; }
+.stage .pin-copy { min-width: 0; display: block; }
+.stage .pin-copy b { display: block; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.stage .spatial-pin small,
+.stage .zone-pin small { font-size: 10px; color: var(--instrument-muted); }
+.stage .pin-ring {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  color: var(--instrument-muted);
+  border-color: currentColor;
+  box-shadow: none;
+}
+.stage .pin-ring svg { width: 13px; height: 13px; }
+.stage .spatial-pin[data-state="online"] .pin-ring { color: #50b68f; }
+.stage.has-marker-selection :is(.spatial-pin,.zone-pin):not(.active):not(:hover):not(:focus-visible) { opacity: .68; }
+.stage :is(.spatial-pin,.zone-pin).active {
+  opacity: 1;
+  border-color: var(--instrument-accent);
+  background: var(--instrument-surface);
+  color: #edf7ff;
+  z-index: 4;
+}
+.scene-tool-group { display: flex; gap: 3px; align-items: center; }
+.embedded .scene-tools {
+  bottom: 15px;
+  gap: 7px;
+  padding: 4px 6px;
+  background: var(--instrument-panel);
+  border-color: var(--instrument-edge);
+  max-width: calc(100% - 16px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.embedded .scene-tool-group + .scene-tool-group {
+  padding-left: 7px;
+  border-left: 1px solid var(--instrument-edge);
+}
+.embedded .scene-tools button {
+  min-height: 32px;
+  padding: 4px 7px;
+  border-radius: 4px;
+  color: #d0dce1;
+}
+.embedded .scene-tools button svg { width: 15px; height: 15px; }
+.embedded .scene-tools button:hover { background: var(--instrument-hover); }
+.embedded .scene-tools button[aria-pressed="true"] {
+  color: var(--instrument-text);
+  background: var(--instrument-surface);
+  border-color: var(--instrument-edge);
+}
+.embedded .selection {
+  bottom: 66px;
+  left: 10px;
+  max-width: min(190px, 42%);
+  padding: 6px 8px;
+  border-left: 1px solid #526873;
+}
+.embedded .selection-line { display: none; }
+.embedded .selection p { font-size: 10px; }
+@media(max-width:420px) {
+  .embedded .selection { bottom: 97px; }
+  .embedded .scene-tools button { padding-inline: 4px; }
+}
+
+/* Floating controls sit one depth level above the instrument enclosure. */
+.embedded .scene-tools,
+.embedded .selection,
+.embedded .stage :is(.spatial-pin, .zone-pin) {
+  background: var(--instrument-overlay);
+  color: var(--instrument-text);
+  border-color: var(--instrument-edge-lit) var(--instrument-edge) var(--instrument-edge-dark) var(--instrument-edge-lit);
+  border-radius: var(--instrument-radius);
+  box-shadow: var(--instrument-lift);
+}
+.embedded .scene-tools { box-shadow: var(--instrument-float); }
+.embedded .stage :is(.spatial-pin, .zone-pin).active {
+  background: var(--instrument-overlay);
+  border-color: var(--instrument-accent) var(--instrument-edge) var(--instrument-edge-dark) var(--instrument-accent);
+}
+.embedded .scene-tool-group + .scene-tool-group { border-color: var(--instrument-divider); }
+.embedded .scene-tools button { font-size: 12px; }
+.embedded .scene-tools button:hover { background: var(--instrument-hover); }
+.embedded .scene-tools button[aria-pressed="true"] {
+  background: var(--instrument-slot);
+  box-shadow: var(--instrument-recess);
+  color: var(--instrument-accent);
+}
+.embedded .scene-tools button:focus-visible,
+.embedded .stage :is(.spatial-pin, .zone-pin):focus-visible {
+  outline: 2px solid var(--instrument-accent);
+  outline-offset: -2px;
+}
+.embedded .stage :is(.spatial-pin, .zone-pin) small,
+.embedded .selection p { font-size: 11px; color: var(--instrument-muted); }
+@media (max-width: 420px) {
+  .embedded .scene-tools { width: max-content; }
+  .embedded .scene-tools button { min-height: 36px; }
+}
+@media (min-width: 340px) and (max-width: 420px) {
+  .embedded .selection { bottom: 70px; }
+}
+@media (max-width: 339px) {
+  .embedded .selection { bottom: 115px; }
+}
+
+/* Model-projected engineering labels share the resource rail nameplate grid. */
+.embedded .stage :is(.spatial-pin,.zone-pin) {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  width: max-content;
+  max-width: min(180px, 54vw);
+  white-space: normal;
+  text-align: left;
+}
+.embedded .stage :is(.spatial-pin,.zone-pin) > .rail-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  margin-top: 1px;
+  color: var(--instrument-muted);
+}
+.embedded .stage .rail-nameplate .rail-id { color: var(--instrument-muted); }
+.embedded .stage .rail-object-detail,
+.embedded .stage .rail-zone-detail { display: none; }
+.embedded .stage .active .rail-object-detail,
+.embedded .stage .active .rail-zone-detail { display: block; }
+.embedded .stage .zone-pin b { display: block; font-weight: 600; }
+.embedded .stage .zone-pin small { margin-top: 2px; }
+.embedded .marker-guides .active { stroke: var(--rail-ink); }
+.embedded .marker-guides circle.active { fill: var(--rail-ink); }
+
+/* A machined lower lip distinguishes scene controls from the inset content surfaces. */
+.embedded .scene-tools {
+  padding: 6px 8px 8px;
+  background: rgb(11 42 73 / 95%);
+  border-top-color: var(--instrument-edge-lit);
+  border-left-color: var(--instrument-edge);
+  border-bottom: 3px solid #041e37;
+  box-shadow: inset 1px 1px rgb(226 243 244 / 16%), 3px 7px 12px #0008;
+}
+.embedded .stage :is(.spatial-pin,.zone-pin) { border-top-color: var(--instrument-edge-lit); border-left-color: var(--instrument-edge); }
+.embedded .scene-tools button[aria-pressed="true"] { border-color: var(--instrument-accent); }

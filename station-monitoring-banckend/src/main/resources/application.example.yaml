@@ -1,12 +1,9 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://8.156.67.132:3306/station_monitoring
-    #    部署的时候得换成本地的数据库
-    #    url: jdbc:mysql://localhost:3306/station_monitoring
-    #    url: "jdbc:mysql://localhost:3306/station_monitoring?characterEncoding=utf-8&serverTimezone=Asia/Shanghai"
+    # 本地 MySQL（部署到服务器时再换回远程地址）
+    url: jdbc:mysql://localhost:3306/station_monitoring?characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: root
-    #    password: dscdnhjcnjdscncdeujhwsuhc
     password: ${APP_CONFIG_PASSWORD:}
   mail:
     host: smtp.qq.com
@@ -23,11 +20,11 @@ spring:
           ssl:
             enable: true
   redis:
-    #    host: localhost
-    host: 47.122.71.140
+    # 本地 Redis（部署到服务器时再换回远程地址）
+    host: localhost
     port: 6379
-    password: ${APP_CONFIG_PASSWORD:}
-    timeout: 10000
+    password:
+    ${APP_CONFIG_PASSWORD:}
     database: 0
     lettuce:
       pool:
@@ -37,8 +34,8 @@ spring:
         min-idle: 0
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 60MB
+      max-file-size: 200MB
+      max-request-size: 200MB
 
 
 
@@ -71,4 +68,10 @@ sa-token:
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.zzy.sms.stationmonitoringbanckend.entity
+
+# DeepSeek 密钥仅从运行环境读取，不写入源码或前端构建产物。
+deepseek:
+  api-key: ${DEEPSEEK_API_KEY:}
+  base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+  model: ${DEEPSEEK_MODEL:deepseek-flash}
 
