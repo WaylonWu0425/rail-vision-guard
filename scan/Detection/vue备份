@@ -1,0 +1,46 @@
+<template>
+    <div>
+      <h1>图像检测</h1>
+      <div>
+        <img :src="'data:image/jpeg;base64,' + imageData" alt="正在进行中，请稍后...." />
+      </div>
+    </div>
+  </template>
+  
+  <script setup>
+  import { ref, onMounted } from 'vue';
+  import axios from 'axios';
+  
+  const imageData = ref('');  // 存储 base64 编码的图像
+  
+  // 获取摄像头视频流的处理结果
+  const fetchVideoFeed = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/video_feed');
+      if (response.data.image) {
+        imageData.value = response.data.image;  // 更新图像数据
+      }
+    } catch (error) {
+      console.error('Error fetching video feed:', error);
+    }
+  };
+  
+  // 每 500 毫秒请求一次视频帧更新
+  onMounted(() => {
+    setInterval(fetchVideoFeed, 500);  // 每 500 毫秒获取一次图像
+  });
+  </script>
+  
+  <style scoped>
+  h1 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  img {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    height: auto;
+  }
+  </style>
+  

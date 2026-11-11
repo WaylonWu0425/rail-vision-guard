@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.AlarmInfoMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.AlarmInfo" id="AlarmInfoMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="content" column="content" jdbcType="VARCHAR"/>
+        <result property="cameraId" column="camera_id" jdbcType="INTEGER"/>
+        <result property="cameraName" column="camera_name" jdbcType="VARCHAR"/>
+        <result property="type" column="type" jdbcType="BIT"/>
+        <result property="dealFlag" column="deal_flag" jdbcType="BIT"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+        <result property="dealTime" column="deal_time" jdbcType="TIMESTAMP"/>
+        <result property="dealUserId" column="deal_user_id" jdbcType="INTEGER"/>
+        <result property="dealUserName" column="deal_user_name" jdbcType="VARCHAR"/>
+        <result property="level" column="level" jdbcType="BIT"/>
+    </resultMap>
+
+
+    <select id="getAllAlarmInfo" resultMap="AlarmInfoMap">
+        SELECT
+            a.*,
+            c.name AS camera_name,
+            u.username AS deal_user_name
+        FROM
+            alarm_info a
+                JOIN
+            camera c ON a.camera_id = c.id
+                LEFT JOIN
+            user u ON a.deal_user_id = u.id;
+    </select>
+
+    <select id="getUndisposedAlarmInfo" resultMap="AlarmInfoMap">
+        SELECT
+            a.*,
+            c.name AS camera_name,
+            u.username AS deal_user_name
+        FROM
+            alarm_info a
+                JOIN
+            camera c ON a.camera_id = c.id
+                LEFT JOIN
+            user u ON a.deal_user_id = u.id
+        WHERE deal_flag = 0;
+    </select>
+
+
+    <select id="countByDate" resultType="int">
+        SELECT COUNT(*)
+        FROM alarm_info
+        WHERE DATE(create_time) = #{date}
+    </select>
+
+    <select id="countAlarmsByTimeRangeAndStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM alarm_info
+        WHERE create_time BETWEEN #{startTime} AND #{endTime}
+        <if test="dealFlag != null">
+            AND deal_flag = #{dealFlag}
+        </if>
+    </select>
+
+</mapper>
+

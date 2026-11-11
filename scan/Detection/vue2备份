@@ -1,0 +1,49 @@
+<template>
+  <div>
+    <h1>图像检测</h1>
+    <div>
+      <img :src="videoFeedUrl" alt="正在进行中，请稍后...." />
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+
+const videoFeedUrl = ref('');
+
+// 获取在线摄像头列表，并设置默认视频流地址为第一个在线摄像头
+const fetchOnlineCameras = async () => {
+  try {
+    const response = await axios.get('http://localhost:5000/online_cameras');
+    const cameras = response.data.cameras;
+    if (cameras.length > 0) {
+      // 默认使用第一个在线摄像头的视频流
+      videoFeedUrl.value = `http://localhost:5000/video_feed/${cameras[0].id}`;
+    } else {
+      console.error('没有可用的在线摄像头');
+    }
+  } catch (error) {
+    console.error('获取在线摄像头列表时出错:', error);
+  }
+};
+
+// 组件挂载时调用获取摄像头列表的方法
+onMounted(() => {
+  fetchOnlineCameras();
+});
+</script>
+
+<style scoped>
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+</style>

@@ -1,0 +1,36 @@
+# Local secrets and connections
+.env
+.env.*
+!.env.example
+**/application.yaml
+**/application.yml
+**/camera_config.json
+**/station_monitoring.sql
+**/alarm_info.sql
+
+# Dependencies and generated output
+**/node_modules/
+**/target/
+**/dist/
+**/build/
+**/.venv*/
+**/.ncnn-runtime/
+**/__pycache__/
+**/*.pyc
+**/*.log
+**/recordings/
+**/runs/
+**/datasets/
+**/evidence/
+**/.original-inputs/
+**/.build-*/
+**/.npm-build-cache/
+**/.codex-backup/
+
+# Local media and data
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.db
+*.sqlite*

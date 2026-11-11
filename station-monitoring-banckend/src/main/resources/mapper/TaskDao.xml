@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.TaskMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.Task" id="TaskMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="title" column="title" jdbcType="VARCHAR"/>
+        <result property="description" column="description" jdbcType="VARCHAR"/>
+        <result property="type" column="type" jdbcType="VARCHAR"/>
+        <result property="priority" column="priority" jdbcType="VARCHAR"/>
+        <result property="status" column="status" jdbcType="VARCHAR"/>
+        <result property="createById" column="create_by_id" jdbcType="INTEGER"/>
+        <result property="assignedToId" column="assigned_to_id" jdbcType="INTEGER"/>
+        <result property="dealById" column="deal_by_id" jdbcType="INTEGER"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+        <result property="endTime" column="end_time" jdbcType="TIMESTAMP"/>
+        <result property="startTime" column="start_time" jdbcType="TIMESTAMP"/>
+        <result property="finishTime" column="finish_time" jdbcType="TIMESTAMP"/>
+        <result property="operationFeedback" column="operation_feedback" jdbcType="VARCHAR"/>
+        <result property="reviewFeedback" column="review_feedback" jdbcType="VARCHAR"/>
+        <result property="createByUsername" column="create_by_username" jdbcType="VARCHAR"/>
+        <result property="assignedToUsername" column="assigned_to_username" jdbcType="VARCHAR"/>
+        <result property="dealByUsername" column="deal_by_username" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <select id="getTaskList" resultMap="TaskMap">
+        SELECT
+        t.*,
+        u1.username AS create_by_username,
+        u2.username AS assigned_to_username,
+        u3.username AS deal_by_username
+        FROM task t
+        LEFT JOIN user u1 ON t.create_by_id = u1.id
+        LEFT JOIN user u2 ON t.assigned_to_id = u2.id
+        LEFT JOIN user u3 ON t.deal_by_id = u3.id
+        <where>
+            <if test="search != null and search != ''">
+                AND (t.title LIKE CONCAT('%', #{search}, '%')
+                OR t.description LIKE CONCAT('%', #{search}, '%'))
+            </if>
+            <if test="status != null and status != ''">
+                AND t.status = #{status}
+            </if>
+            <if test="type != null and type != ''">
+                AND t.type = #{type}
+            </if>
+            <if test="startDate != null">
+                AND t.create_time &gt;= #{createDate}
+            </if>
+            <if test="endDate != null">
+                AND t.create_time &lt;= #{endDate}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC
+        LIMIT #{page}, #{size}
+    </select>
+
+    <!--获取任务列表的数量-->
+    <select id="countTaskList" resultType="int">
+        SELECT COUNT(*) count FROM task t
+        <where>
+            <if test="params != null and params.search != null and params.search != ''">
+                AND (title LIKE CONCAT('%', #{params.search}, '%')
+                OR description LIKE CONCAT('%', #{params.search}, '%'))
+            </if>
+            <if test="params != null and params.status != null and params.status != ''">
+                AND status = #{params.status}
+            </if>
+            <if test="params != null and params.type != null and params.type != ''">
+                AND type = #{params.type}
+            </if>
+            <if test="params != null and params.startDate != null">
+                AND create_time >= #{params.startDate}
+            </if>
+            <if test="params != null and params.endDate != null">
+                AND create_time &lt;= #{params.endDate}
+            </if>
+            <if test="userId != null">
+                AND t.assigned_to_id = #{userId}
+            </if>
+        </where>
+    </select>
+
+
+    <select id="getTaskById" resultMap="TaskMap">
+        SELECT
+        t.*,
+        u1.username AS create_by_username,
+        u2.username AS assigned_to_username,
+        u3.username AS deal_by_username
+        FROM task t
+        LEFT JOIN user u1 ON t.create_by_id = u1.id
+        LEFT JOIN user u2 ON t.assigned_to_id = u2.id
+        LEFT JOIN user u3 ON t.deal_by_id = u3.id
+        where t.id = #{id};
+    </select>
+
+    <insert id="createTask" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO task (
+            title, description, type, priority, status,
+            create_by_id, assigned_to_id, create_time, end_time, start_time, finish_time, operation_feedback, review_feedback
+        ) VALUES (
+                     #{title}, #{description}, #{type}, #{priority}, #{status},
+                     #{createById}, #{assignedToId}, #{createTime}, #{endTime} ,#{startTime}, #{finishTime}, #{operationFeedback}, #{reviewFeedback}
+                 )
+    </insert>
+
+    <update id="updateTask">
+        UPDATE task
+        <set>
+            <if test="title != null">title = #{title},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="priority != null">priority = #{priority},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="assignedToId != null">assigned_to_id = #{assignedToId},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="finishTime != null">finish_time = #{finishTime},</if>
+            <if test="operationFeedback != null">operation_feedback = #{operationFeedback},</if>
+            <if test="reviewFeedback != null">review_feedback = #{reviewFeedback},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="getEmployeeTask" resultMap="TaskMap">
+        SELECT
+        t.*,
+        u1.username AS create_by_username,
+        u2.username AS assigned_to_username,
+        u3.username AS deal_by_username
+        FROM task t
+        LEFT JOIN user u1 ON t.create_by_id = u1.id
+        LEFT JOIN user u2 ON t.assigned_to_id = u2.id
+        LEFT JOIN user u3 ON t.deal_by_id = u3.id
+        <where>
+            <if test="params.search != null and params.search != ''">
+                AND (t.title LIKE CONCAT('%', #{params.search}, '%')
+                OR t.description LIKE CONCAT('%', #{params.search}, '%'))
+            </if>
+            <if test="params.status != null and params.status != ''">
+                AND t.status = #{params.status}
+            </if>
+            <if test="params.type != null and params.type != ''">
+                AND t.type = #{params.type}
+            </if>
+            <if test="params.startDate != null">
+                AND t.create_time &gt;= #{params.createDate}
+            </if>
+            <if test="params.endDate != null">
+                AND t.create_time &lt;= #{params.endDate}
+            </if>
+            <if test="userId != null">
+                AND t.assigned_to_id = #{userId}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC
+        LIMIT #{params.page}, #{params.size}
+    </select>
+
+    <update id="updateTaskStatus">
+        UPDATE task
+        SET status = #{status} WHERE id = #{taskId}
+    </update>
+
+    <update id="updateOperationFeedback">
+        UPDATE task
+        SET operation_feedback = #{operationFeedback}
+        WHERE id = #{taskId}
+    </update>
+
+
+</mapper>
+

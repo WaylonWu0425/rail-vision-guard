@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.CameraAlarmMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.CameraAlarm" id="CameraAlarmMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="cameraId" column="camera_id" jdbcType="INTEGER"/>
+        <result property="userId" column="user_id" jdbcType="INTEGER"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+        <result property="dealTime" column="deal_time" jdbcType="TIMESTAMP"/>
+        <result property="dealFlag" column="deal_flag" jdbcType="VARCHAR"/>
+        <result property="alarmDate" column="alarm_date" jdbcType="VARCHAR"/>
+        <result property="alarmCount" column="alarm_count" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <!--查询单个-->
+    <select id="queryById" resultMap="CameraAlarmMap">
+        select
+id, camera_id, user_id, create_time, deal_time, deal_flag
+        from camera_alarm
+        where id = #{id}
+    </select>
+
+    <!--查询指定行数据-->
+    <select id="queryAllByLimit" resultMap="CameraAlarmMap">
+        select
+id, camera_id, user_id, create_time, deal_time, deal_flag
+        from camera_alarm
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="cameraId != null">
+                and camera_id = #{cameraId}
+            </if>
+            <if test="userId != null">
+                and user_id = #{userId}
+            </if>
+            <if test="createTime != null">
+                and create_time = #{createTime}
+            </if>
+            <if test="dealTime != null">
+                and deal_time = #{dealTime}
+            </if>
+            <if test="dealFlag != null and dealFlag != ''">
+                and deal_flag = #{dealFlag}
+            </if>
+        </where>
+        limit #{pageable.offset}, #{pageable.pageSize}
+    </select>
+
+    <!--统计总行数-->
+    <select id="count" resultType="java.lang.Long">
+        select count(1)
+        from camera_alarm
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="cameraId != null">
+                and camera_id = #{cameraId}
+            </if>
+            <if test="userId != null">
+                and user_id = #{userId}
+            </if>
+            <if test="createTime != null">
+                and create_time = #{createTime}
+            </if>
+            <if test="dealTime != null">
+                and deal_time = #{dealTime}
+            </if>
+            <if test="dealFlag != null and dealFlag != ''">
+                and deal_flag = #{dealFlag}
+            </if>
+        </where>
+    </select>
+
+    <!--添加报警信息-->
+    <insert id="insertCameraAlarm" keyProperty="id" useGeneratedKeys="true">
+        insert into camera_alarm(camera_id, user_id, create_time, deal_time, deal_flag)
+        values (#{cameraId}, #{userId}, #{createTime}, #{dealTime}, #{dealFlag})
+    </insert>
+
+    <insert id="insertBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into camera_alarm(camera_id, user_id, create_time, deal_time, deal_flag)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+        (#{entity.cameraId}, #{entity.userId}, #{entity.createTime}, #{entity.dealTime}, #{entity.dealFlag})
+        </foreach>
+    </insert>
+
+    <insert id="insertOrUpdateBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into camera_alarm(camera_id, user_id, create_time, deal_time, deal_flag)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.cameraId}, #{entity.userId}, #{entity.createTime}, #{entity.dealTime}, #{entity.dealFlag})
+        </foreach>
+        on duplicate key update
+camera_id = values(camera_id),
+user_id = values(user_id),
+create_time = values(create_time),
+deal_time = values(deal_time),
+deal_flag = values(deal_flag)
+    </insert>
+
+    <!--通过主键修改数据-->
+    <update id="update">
+        update camera_alarm
+        <set>
+            <if test="cameraId != null">
+                camera_id = #{cameraId},
+            </if>
+            <if test="userId != null">
+                user_id = #{userId},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime},
+            </if>
+            <if test="dealTime != null">
+                deal_time = #{dealTime},
+            </if>
+            <if test="dealFlag != null and dealFlag != ''">
+                deal_flag = #{dealFlag},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!--通过主键删除-->
+    <delete id="deleteById">
+        delete from camera_alarm where id = #{id}
+    </delete>
+
+
+    <select id="countByDate" resultType="int">
+        SELECT COUNT(*)
+        FROM camera_alarm
+        WHERE DATE(create_time) = #{date}
+    </select>
+
+    <select id="countAlarmsByTimeRangeAndStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM camera_alarm
+        WHERE create_time BETWEEN #{startTime} AND #{endTime}
+        <if test="dealFlag != null">
+            AND deal_flag = #{dealFlag}
+        </if>
+    </select>
+
+</mapper>
+

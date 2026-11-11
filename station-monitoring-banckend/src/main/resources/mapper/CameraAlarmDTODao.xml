@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.CameraAlarmDTOMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.dto.CameraAlarmDTO" id="CameraAlarmDTOMap">
+        <result property="id" column="id" jdbcType="BIGINT"/>
+        <result property="cameraName" column="cameraName" jdbcType="VARCHAR"/>
+        <result property="productNumber" column="productNumber" jdbcType="INTEGER"/>
+        <result property="port" column="port" jdbcType="INTEGER"/>
+        <result property="ip" column="ip" jdbcType="VARCHAR"/>
+        <result property="username" column="username" jdbcType="VARCHAR"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+        <result property="dealTime" column="deal_time" jdbcType="TIMESTAMP"/>
+        <result property="dealFlag" column="deal_flag" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <select id="getAllCameraAlarm" resultMap="CameraAlarmDTOMap">
+        SELECT
+            ca.id,
+            c.name AS cameraName,
+            c.product_number AS productNumber,
+            c.port,
+            c.ip,
+            u.username,
+            ca.create_time AS createTime,
+            ca.deal_time AS dealTime,
+            ca.deal_flag
+        FROM camera_alarm ca
+                 JOIN camera c ON ca.camera_id = c.id
+                 LEFT JOIN user u ON ca.user_id = u.id
+    </select>
+
+    <select id="getUndisposedCameraAlarm" resultMap="CameraAlarmDTOMap">
+        SELECT
+            ca.id,
+            c.name AS cameraName,
+            c.product_number AS productNumber,
+            c.port,
+            c.ip,
+            u.username,
+            ca.create_time AS createTime,
+            ca.deal_time AS dealTime,
+            ca.deal_flag
+        FROM camera_alarm ca
+                 JOIN camera c ON ca.camera_id = c.id
+                 LEFT JOIN user u ON ca.user_id = u.id
+        WHERE deal_flag = '0'
+    </select>
+
+
+</mapper>
+

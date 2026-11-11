@@ -1,0 +1,11 @@
+{
+  "cameras": [
+    {
+      "id": "example-camera",
+      "name": "示例摄像头",
+      "stream_url": "",
+      "type": "rtsp",
+      "enabled": false
+    }
+  ]
+}

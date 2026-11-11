@@ -1,0 +1,1760 @@
+<template>
+  <div class="app-container">
+    <!-- 导航栏 -->
+    <header class="header">
+      <div class="logo-section">
+        <i class="fas fa-video"></i>
+        <h1>视频回放系统</h1>
+      </div>
+      
+      <!-- 添加实时流按钮 -->
+      <div class="live-stream-button">
+        <button 
+          class="btn live-btn" 
+          @click="playLiveStream" 
+          :class="{'active': isLiveStreamActive}"
+        >
+          <i class="fas fa-broadcast-tower"></i> 
+          {{ isLiveStreamActive ? '正在观看直播' : '观看实时监控' }}
+        </button>
+      </div>
+    </header>
+    
+    <!-- 主要内容 -->
+    <main class="main-content">
+      <!-- 侧边栏 - 视频列表 -->
+      <aside class="sidebar">
+        <div class="recordings-browser">
+          <div class="sidebar-header">
+            <div class="panel-header with-controls">
+              <h2>录像文件</h2>
+              <div class="controls">
+                <button class="btn refresh-btn" @click="getRecordings">
+                  <i class="fas fa-sync"></i>
+                </button>
+                <div class="view-toggle">
+                  <button class="btn" :class="{'active': viewMode === 'grid'}" @click="viewMode = 'grid'">
+                    <i class="fas fa-th"></i>
+                  </button>
+                  <button class="btn" :class="{'active': viewMode === 'list'}" @click="viewMode = 'list'">
+                    <i class="fas fa-list"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div class="filter-bar">
+              <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="搜索录像..." v-model="searchQuery" @input="filterRecordings">
+              </div>
+            </div>
+          </div>
+          
+          <!-- 滚动区域容器 -->
+          <div class="sidebar-scroll-container">
+            <div v-if="filteredRecordings.length === 0" class="no-recordings">
+              <i class="fas fa-film"></i>
+              <p>暂无符合条件的录像</p>
+            </div>
+            
+            <div v-else class="video-list-container">
+              <!-- 网格视图 -->
+              <div v-if="viewMode === 'grid'" class="video-grid">
+                <div 
+                  v-for="video in filteredRecordings" 
+                  :key="video.filename" 
+                  class="video-card"
+                  @click="selectVideo(video)"
+                  :class="{'selected': selectedVideo && selectedVideo.path === video.path}"
+                >
+                  <div class="thumbnail">
+                    <img :src="getVideoThumbnail(video)" alt="视频缩略图">
+                    <span class="duration">{{ video.duration || '00:00:00' }}</span>
+                  </div>
+                  <div class="video-info">
+                    <div class="video-name">{{ formatVideoName(video.filename) }}</div>
+                    <div class="video-meta">
+                      <span class="video-time">{{ formatTime(video.date) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 列表视图 -->
+              <div v-else class="video-list">
+                <div 
+                  v-for="video in filteredRecordings" 
+                  :key="video.filename" 
+                  class="video-item"
+                  @click="selectVideo(video)"
+                  :class="{'selected': selectedVideo && selectedVideo.path === video.path}"
+                >
+                  <div class="video-thumbnail">
+                    <img :src="getVideoThumbnail(video)" alt="视频缩略图">
+                  </div>
+                  <div class="video-details">
+                    <div class="video-name">{{ formatVideoName(video.filename) }}</div>
+                    <div class="video-meta">
+                      <span class="video-time"><i class="fas fa-clock"></i> {{ formatTime(video.date) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+      
+      <!-- 主内容区域 - 视频播放 -->
+      <section class="content-area" :class="{'full-width': sidebarCollapsed}">
+        <div class="playback-view">
+          <div v-if="!selectedVideo && !isLiveStreamActive" class="no-video-selected">
+            <i class="fas fa-film"></i>
+            <p>请从左侧选择一个录像进行播放或点击顶部的实时监控按钮</p>
+          </div>
+          
+          <div v-else class="video-player-container">
+            <div class="panel-header with-controls">
+              <h2>{{ getPlayerTitle() }}</h2>
+              <div class="controls">
+                <span v-if="isLiveStreamActive" class="live-indicator">
+                  <i class="fas fa-circle blink"></i> 实时
+                </span>
+                <button class="btn close-btn" @click="closeVideo">
+                  <i class="fas fa-times"></i> 关闭
+                </button>
+              </div>
+            </div>
+            
+            <div class="video-player">
+              <!-- 加载指示器 - 调整为非全屏样式 -->
+              <div v-if="videoLoading" class="video-loading">
+                <div class="loading-spinner"></div>
+                <p>加载视频中...</p>
+              </div>
+              
+              <!-- Video.js播放器 -->
+              <div class="video-wrapper">
+                <video 
+                  ref="videoPlayer" 
+                  class="video-js vjs-theme-forest" 
+                  controls 
+                  preload="auto"
+                >
+                  <p class="vjs-no-js">
+                    要查看此视频，请启用JavaScript并考虑升级到支持HTML5视频的Web浏览器
+                  </p>
+                </video>
+              </div>
+            </div>
+            
+            <div class="video-details" v-if="!isLiveStreamActive">
+              <div class="detail-item">
+                <i class="fas fa-calendar"></i>
+                <span>{{ selectedVideo?.date || '未知日期' }}</span>
+              </div>
+              <div class="detail-item">
+                <i class="fas fa-file"></i>
+                <span>{{ selectedVideo?.filename || '未知文件名' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    
+    <!-- 消息提示 -->
+    <div v-if="message" class="message-toast" :class="messageType">
+      <i class="fas" :class="getMessageIcon()"></i>
+      {{ message }}
+    </div>
+  </div>
+</template>
+
+<script>
+// 引入API基础URL - 如果需要的话可以保留
+const API_BASE_URL = 'http://localhost:5000/api';
+
+// 声明videojs为全局变量，避免ESLint报错
+/* global videojs */
+/* global Hls */
+
+export default {
+  name: 'App',
+  data() {
+    return {
+      // 视图控制
+      viewMode: 'grid', // 'grid', 'list'
+      
+      // 侧边栏状态
+      sidebarCollapsed: false,
+      
+      // 录像列表和过滤
+      recordings: [],
+      filteredRecordings: [],
+      selectedVideo: null,
+      searchQuery: '',
+      
+      // 消息提示
+      message: '',
+      messageType: 'info',
+      messageTimeout: null,
+      
+      // Video.js播放器
+      player: null,
+      videoLoading: false,
+      isSelectingVideo: false,
+      hlsInstance: null,
+      
+      // 视频源目录 - 实际项目中应由服务器提供访问
+      videoDirectory: 'D:/camera_test/hls_output',
+      // HTTP服务器URL前缀，用于替换本地路径
+      videoServerUrl: 'http://localhost:5000/videos',
+      
+      // 实时流相关
+      isLiveStreamActive: false,
+      liveStreamInfo: null
+    }
+  },
+  
+  mounted() {
+    // 组件加载后立即获取录像列表
+    this.getRecordings();
+    
+    // 加载字体图标
+    this.loadFontAwesome();
+    
+    // 加载HLS.js库
+    this.loadHlsLibrary();
+    
+    // 恢复用户侧边栏偏好
+    const savedSidebarState = localStorage.getItem('sidebarCollapsed');
+    if (savedSidebarState !== null) {
+      this.sidebarCollapsed = savedSidebarState === 'true';
+    }
+    
+    // 确保侧边栏滚动容器正确初始化
+    this.$nextTick(() => {
+      this.initializeScrollEvents();
+    });
+  },
+  
+  beforeUnmount() {
+    // 清除定时器
+    if (this.messageTimeout) {
+      clearTimeout(this.messageTimeout);
+    }
+    
+    // 销毁播放器
+    this.closeVideo();
+  },
+  
+  methods: {
+    // 切换侧边栏显示/隐藏
+    toggleSidebar() {
+      // 功能已禁用
+      console.log('侧边栏切换功能已禁用');
+    },
+    
+    // 加载HLS.js库
+    loadHlsLibrary() {
+      if (window.Hls) {
+        console.log('HLS.js已加载');
+        return Promise.resolve();
+      }
+      
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+        script.async = true;
+        script.onload = () => {
+          console.log('HLS.js加载成功');
+          resolve();
+        };
+        script.onerror = () => {
+          console.error('HLS.js加载失败');
+          this.showMessage('HLS视频库加载失败，可能影响视频播放', 'error');
+          reject();
+        };
+        document.head.appendChild(script);
+      });
+    },
+    
+    // 加载Video.js库
+    loadVideoJs() {
+      if (window.videojs) {
+        console.log('Video.js已加载');
+        return Promise.resolve();
+      }
+      
+      return new Promise((resolve, reject) => {
+        // 加载CSS
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://vjs.zencdn.net/7.20.3/video-js.css';
+        document.head.appendChild(link);
+        
+        // 加载JS
+        const script = document.createElement('script');
+        script.src = 'https://vjs.zencdn.net/7.20.3/video.min.js';
+        script.async = true;
+        script.onload = () => {
+          console.log('Video.js加载成功');
+          resolve();
+        };
+        script.onerror = () => {
+          console.error('Video.js加载失败');
+          this.showMessage('视频播放库加载失败', 'error');
+          reject();
+        };
+        document.head.appendChild(script);
+      });
+    },
+    
+    // 加载Font Awesome图标库
+    loadFontAwesome() {
+      const script = document.createElement('script');
+      script.src = 'https://kit.fontawesome.com/a076d05399.js';
+      script.crossOrigin = 'anonymous';
+      document.head.appendChild(script);
+    },
+    
+    // 获取录像列表 - 直接读取指定目录
+    async getRecordings() {
+      try {
+        // 这里应该是从后端API获取视频列表
+        // 在实际应用中，需要创建一个后端API来读取D:/camera_test/hls_output目录
+        // 下面是模拟实现，真实项目中需要替换为实际API调用
+        
+        const response = await fetch(`${API_BASE_URL}/list-hls-videos?directory=${encodeURIComponent(this.videoDirectory)}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // 处理视频数据，转换为应用所需格式
+        this.recordings = data.videos.map(video => {
+          // 将本地路径转换为HTTP URL
+          const videoUrl = this.getVideoHttpUrl(video.path || video.filename);
+          
+          return {
+            filename: video.filename,
+            path: videoUrl,
+            date: this.extractDateFromFilename(video.filename) || new Date().toISOString().split('T')[0],
+            thumbnail: video.thumbnail || '',
+            duration: video.duration || '00:00:00'
+          };
+        });
+        
+        // 过滤并排序
+        this.filterRecordings();
+        
+        this.showMessage('成功加载视频列表', 'success');
+      } catch (error) {
+        console.error('获取录像列表失败:', error);
+        this.showMessage('获取录像列表失败，正在使用测试数据', 'error');
+        
+        // 使用测试数据（实际项目中应删除）
+        this.loadTestData();
+      }
+    },
+    
+    // 将本地文件路径转换为可访问的HTTP URL
+    getVideoHttpUrl(filePath) {
+      // 从文件路径中提取文件名
+      const filename = filePath.split(/[\/\\]/).pop();
+      // 构建HTTP URL
+      return `${this.videoServerUrl}/${encodeURIComponent(filename)}`;
+    },
+    
+    // 加载测试数据（开发阶段使用，实际项目中可删除）
+    loadTestData() {
+      // 模拟10个m3u8视频文件
+      const videos = [];
+      const today = new Date();
+      
+      for (let i = 0; i < 10; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
+        const timeStr = `${String(Math.floor(Math.random() * 24)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`;
+        const filename = `video_${dateStr}_${timeStr}.m3u8`;
+        
+        videos.push({
+          filename: filename,
+          path: `${this.videoServerUrl}/${filename}`,
+          date: `${dateStr}_${timeStr}`,
+          thumbnail: '',
+          duration: `00:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`
+        });
+      }
+      
+      this.recordings = videos;
+      this.filterRecordings();
+    },
+    
+    // 从文件名中提取日期
+    extractDateFromFilename(filename) {
+      // 尝试匹配格式：video_20230502_121520.m3u8
+      const match = filename.match(/(\d{8})_(\d{6})/);
+      if (match) {
+        return `${match[1]}_${match[2]}`;
+      }
+      return null;
+    },
+    
+    // 过滤录像列表
+    filterRecordings() {
+      if (!this.searchQuery) {
+        // 没有搜索条件，按日期从新到旧排序
+        this.filteredRecordings = [...this.recordings].sort((a, b) => b.date.localeCompare(a.date));
+      } else {
+        // 按搜索词过滤视频文件名
+        const query = this.searchQuery.toLowerCase();
+        this.filteredRecordings = this.recordings
+          .filter(video => video.filename.toLowerCase().includes(query))
+          .sort((a, b) => b.date.localeCompare(a.date));
+      }
+      
+      // 在DOM更新后调整滚动位置
+      this.$nextTick(() => {
+        const container = document.querySelector('.video-list-container');
+        if (container) {
+          // 重置滚动位置到顶部
+          container.scrollTop = 0;
+        }
+      });
+    },
+    
+    // 格式化视频名称(去除日期和扩展名)
+    formatVideoName(filename) {
+      if (!filename) return '';
+      
+      // 移除扩展名
+      let name = filename.replace(/\.[^/.]+$/, "");
+      
+      // 如果名称包含日期时间格式（如video_20230502_121520），则移除
+      name = name.replace(/^video_\d{8}_\d{6}_?/, "");
+      
+      // 将下划线替换为空格
+      name = name.replace(/_/g, " ");
+      
+      return name || filename;
+    },
+    
+    // 获取视频缩略图
+    getVideoThumbnail(video) {
+      // 如果视频有缩略图，直接返回
+      if (video.thumbnail) {
+        return video.thumbnail;
+      }
+      
+      // 否则返回默认图片
+      return 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22320%22%20height%3D%22180%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20320%20180%22%20preserveAspectRatio%3D%22none%22%3E%3Cdefs%3E%3Cstyle%20type%3D%22text%2Fcss%22%3E%23holder_16d13f06515%20text%20%7B%20fill%3A%23999%3Bfont-weight%3Anormal%3Bfont-family%3A-apple-system%2CBlinkMacSystemFont%2C%26quot%3BSegoe%20UI%26quot%3B%2CRoboto%2C%26quot%3BHelvetica%20Neue%26quot%3B%2CArial%2C%26quot%3BNoto%20Sans%26quot%3B%2Csans-serif%2C%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%26quot%3BSegoe%20UI%20Symbol%26quot%3B%2C%26quot%3BNoto%20Color%20Emoji%26quot%3B%2C%20monospace%3Bfont-size%3A16pt%20%7D%20%3C%2Fstyle%3E%3C%2Fdefs%3E%3Cg%20id%3D%22holder_16d13f06515%22%3E%3Crect%20width%3D%22320%22%20height%3D%22180%22%20fill%3D%22%23373940%22%3E%3C%2Frect%3E%3Cg%3E%3Ctext%20x%3D%22120.3359375%22%20y%3D%2297.35%22%3E%E8%A7%86%E9%A2%91%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E';
+    },
+    
+    // 选择视频进行播放
+    async selectVideo(video) {
+      // 如果已选择同一个视频，不做任何处理
+      if (this.selectedVideo && this.selectedVideo.path === video.path) {
+        return;
+      }
+      
+      // 如果正在处理视频选择，则忽略请求
+      if (this.isSelectingVideo) {
+        console.log('正在切换视频，请稍候再试');
+        return;
+      }
+      
+      console.log('开始选择新视频:', video.filename);
+      
+      // 设置防抖动标志
+      this.isSelectingVideo = true;
+      
+      // 关闭当前可能在播放的视频
+      this.closeVideo();
+      
+      // 设置加载状态
+      this.videoLoading = true;
+      
+      // 设置选中的视频，先展示UI
+      this.selectedVideo = video;
+      this.isLiveStreamActive = false;
+      
+      // 确保Video.js和HLS.js已加载
+      try {
+        await Promise.all([
+          this.loadVideoJs(),
+          this.loadHlsLibrary()
+        ]);
+        
+        // 使用setTimeout确保DOM更新完成后再初始化播放器
+        setTimeout(() => {
+          console.log('准备初始化播放器，DOM是否就绪:', !!this.$refs.videoPlayer);
+          if (this.$refs.videoPlayer) {
+            this.initializeVideoPlayer(video);
+          } else {
+            console.error('播放器DOM元素未找到');
+            this.videoLoading = false;
+            this.isSelectingVideo = false;
+            this.showMessage('播放器初始化失败，请刷新页面重试', 'error');
+          }
+        }, 100); // 减少延迟时间，加快初始化
+      } catch (error) {
+        console.error('加载播放器库失败:', error);
+        this.videoLoading = false;
+        this.isSelectingVideo = false;
+        this.showMessage('播放器组件加载失败，请刷新页面重试', 'error');
+      }
+    },
+    
+    // 初始化视频播放器
+    initializeVideoPlayer(video) {
+      // 获取视频元素
+      const videoElement = this.$refs.videoPlayer;
+      
+      try {
+        // 检查浏览器是否支持HLS
+        if (window.Hls && Hls.isSupported()) {
+          console.log('使用HLS.js播放视频:', video.path);
+          
+          // 创建HLS实例
+          this.hlsInstance = new Hls({
+            debug: false,
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 90,
+            manifestLoadingTimeOut: 15000, // 增加超时时间
+            manifestLoadingMaxRetry: 3,    // 增加重试次数
+          });
+          
+          // 事件处理
+          this.hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {
+            console.log('HLS媒体附加完成，加载源');
+            this.hlsInstance.loadSource(video.path);
+          });
+          
+          // 加载HLS源
+          this.hlsInstance.attachMedia(videoElement);
+          
+          // 监听事件
+          this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+            console.log('HLS清单解析完成，准备播放');
+            // 创建Video.js UI在清单解析后
+            this.initializeVideoJs(videoElement);
+          });
+          
+          // 设置较短的超时时间
+          setTimeout(() => {
+            if (this.videoLoading) {
+              // 如果5秒后仍在加载，提供一个反馈
+              this.showMessage('视频加载较慢，请耐心等待...', 'info');
+              
+              // 15秒后仍在加载，可能有问题
+              setTimeout(() => {
+                if (this.videoLoading) {
+                  this.showMessage('视频加载超时，请尝试其他视频', 'warning');
+                  this.videoLoading = false;
+                }
+              }, 10000);
+            }
+          }, 5000);
+          
+          this.hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+            console.error('HLS错误:', data.type, data.details);
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  this.showMessage('视频加载失败：网络错误，请检查网络连接', 'error');
+                  this.videoLoading = false;
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  this.showMessage('视频解码错误，尝试恢复...', 'warning');
+                  this.hlsInstance.recoverMediaError();
+                  break;
+                default:
+                  this.showMessage('视频播放出错：' + data.details, 'error');
+                  this.videoLoading = false;
+                  this.isSelectingVideo = false;
+                  break;
+              }
+            }
+          });
+        } 
+        // 原生支持HLS (iOS Safari)
+        else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+          console.log('使用原生HLS播放视频');
+          
+          videoElement.src = video.path;
+          videoElement.addEventListener('loadedmetadata', () => {
+            this.initializeVideoJs(videoElement);
+          });
+        } 
+        // 不支持HLS
+        else {
+          console.error('浏览器不支持HLS播放');
+          this.showMessage('您的浏览器不支持HLS格式视频，请使用最新版Chrome/Safari/Firefox', 'error');
+          this.videoLoading = false;
+          this.isSelectingVideo = false;
+        }
+      } catch (e) {
+        console.error('初始化播放器失败:', e);
+        this.videoLoading = false;
+        this.isSelectingVideo = false;
+        this.showMessage('播放器初始化失败，请检查视频格式', 'error');
+      }
+    },
+    
+    // 初始化Video.js播放器UI
+    initializeVideoJs(videoElement, isLive = false) {
+      if (!window.videojs) {
+        console.error('Video.js未加载');
+        return;
+      }
+      
+      try {
+        // 简化播放器配置
+        const playerOptions = {
+          controls: true,
+          autoplay: true,
+          preload: 'auto',
+          fluid: false,  // 禁用流体布局
+          aspectRatio: '16:9',
+          width: 640,   // 固定宽度
+          height: 360,  // 固定高度
+          html5: {
+            vhs: {
+              overrideNative: true
+            },
+            nativeVideoTracks: false,
+            nativeAudioTracks: false,
+            nativeTextTracks: false
+          }
+        };
+        
+        // 初始化Video.js播放器
+        this.player = videojs(videoElement, playerOptions);
+        
+        // 在播放器初始化完成后设置样式
+        this.player.ready(() => {
+          console.log('播放器准备完毕');
+          
+          // 设置视频元素样式
+          const videoEl = this.player.el().querySelector('video');
+          if (videoEl) {
+            videoEl.style.objectFit = 'contain';
+          }
+          
+          // 尝试播放
+          this.player.play().catch(e => {
+            console.error('自动播放失败:', e);
+            this.showMessage('请点击播放按钮开始播放', 'info');
+          });
+        });
+        
+        // 添加事件监听器
+        this.player.on('error', () => {
+          const error = this.player.error();
+          console.error('视频播放器错误:', error);
+          this.showMessage(`视频加载失败: ${error && error.message || '未知错误'}`, 'error');
+          this.videoLoading = false;
+        });
+        
+        this.player.on('loadeddata', () => {
+          console.log('视频数据加载完成');
+          this.videoLoading = false;
+          this.showMessage(isLive ? '实时监控已连接' : '视频加载完成', 'success');
+        });
+        
+        this.player.on('playing', () => {
+          console.log('视频开始播放');
+          this.videoLoading = false;
+        });
+      } catch (e) {
+        console.error('Video.js初始化失败:', e);
+      }
+    },
+    
+    // 关闭视频播放 - 改进清理逻辑
+    closeVideo() {
+      console.log('关闭视频播放器');
+      
+      this.videoLoading = false; // 立即停止加载状态
+      
+      // 销毁HLS实例
+      if (this.hlsInstance) {
+        try {
+          this.hlsInstance.destroy();
+          this.hlsInstance = null;
+        } catch (e) {
+          console.error('销毁HLS实例失败:', e);
+        }
+      }
+      
+      // 销毁Video.js播放器
+      if (this.player) {
+        try {
+          // 先暂停播放
+          this.player.pause();
+          this.player.dispose();
+          this.player = null;
+        } catch (e) {
+          console.error('销毁播放器失败:', e);
+        }
+      }
+      
+      // 重置状态
+      this.selectedVideo = null;
+      this.isLiveStreamActive = false;
+      this.isSelectingVideo = false;
+    },
+    
+    // 格式化时间显示
+    formatTime(dateTimeStr) {
+      if (!dateTimeStr) return '';
+      
+      // 如果是带下划线的日期时间(如20230502_121520)，转换为时间格式
+      if (dateTimeStr.includes('_')) {
+        const timeStr = dateTimeStr.split('_')[1];
+        if (timeStr && timeStr.length === 6) {
+          return `${timeStr.substring(0, 2)}:${timeStr.substring(2, 4)}:${timeStr.substring(4, 6)}`;
+        }
+      }
+      
+      return dateTimeStr;
+    },
+    
+    // 获取消息图标
+    getMessageIcon() {
+      switch (this.messageType) {
+        case 'success': return 'fa-check-circle';
+        case 'error': return 'fa-exclamation-circle';
+        case 'warning': return 'fa-exclamation-triangle';
+        default: return 'fa-info-circle';
+      }
+    },
+    
+    // 显示消息提示
+    showMessage(msg, type = 'info') {
+      this.message = msg;
+      this.messageType = type;
+      
+      // 清除之前的定时器
+      if (this.messageTimeout) {
+        clearTimeout(this.messageTimeout);
+      }
+      
+      // 设置新的定时器，3秒后自动消失
+      this.messageTimeout = setTimeout(() => {
+        this.message = '';
+      }, 3000);
+    },
+    
+    // 播放实时流
+    async playLiveStream() {
+      // 如果已经在播放实时流，则关闭它
+      if (this.isLiveStreamActive) {
+        this.closeVideo();
+        return;
+      }
+
+      try {
+        // 关闭当前可能在播放的视频
+        this.closeVideo();
+        
+        // 设置加载状态
+        this.videoLoading = true;
+        this.showMessage('正在连接实时监控...', 'info');
+        
+        // 从API获取实时流信息
+        const response = await fetch(`${API_BASE_URL}/live-stream`);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.error || `服务器返回错误: ${response.status}`;
+          throw new Error(errorMessage);
+        }
+        
+        const liveStreamInfo = await response.json();
+        console.log('实时流信息:', liveStreamInfo);
+        
+        // 确保URL是正确的
+        if (!liveStreamInfo.url) {
+          throw new Error('服务器未返回有效的直播流地址');
+        }
+        
+        // 处理URL，确保是完整的地址
+        const streamUrl = liveStreamInfo.url.startsWith('http') 
+          ? liveStreamInfo.url 
+          : `http://localhost:5000${liveStreamInfo.url.startsWith('/') ? '' : '/'}${liveStreamInfo.url}`;
+        
+        console.log('使用直播流地址:', streamUrl);
+        
+        // 确保HLS.js和Video.js已加载
+        await Promise.all([
+          this.loadVideoJs(),
+          this.loadHlsLibrary()
+        ]);
+        
+        // 标记为实时流播放模式
+        this.isLiveStreamActive = true;
+        
+        // 设置直播信息
+        this.liveStreamInfo = {
+          ...liveStreamInfo,
+          url: streamUrl
+        };
+        
+        // 初始化播放器
+        this.$nextTick(() => {
+          const videoElement = this.$refs.videoPlayer;
+          
+          if (!videoElement) {
+            console.error('找不到视频元素');
+            this.videoLoading = false;
+            this.showMessage('播放器初始化失败', 'error');
+            return;
+          }
+          
+          console.log('开始播放实时流:', streamUrl);
+          
+          // 使用HLS.js播放实时流
+          if (window.Hls && Hls.isSupported()) {
+            // 销毁现有HLS实例
+            if (this.hlsInstance) {
+              this.hlsInstance.destroy();
+            }
+            
+            // 创建新的HLS实例
+            this.hlsInstance = new Hls({
+              debug: false,
+              enableWorker: true,
+              lowLatencyMode: true,
+              liveSyncDuration: 3,
+              liveMaxLatencyDuration: 10,
+              liveDurationInfinity: true,
+              // 增加加载超时时间
+              manifestLoadingTimeOut: 10000,
+              manifestLoadingMaxRetry: 4,
+              manifestLoadingRetryDelay: 500
+            });
+            
+            // 注册事件处理函数
+            this.setupHlsEventHandlers(streamUrl);
+            
+            // 加载实时流源
+            this.hlsInstance.loadSource(streamUrl);
+            this.hlsInstance.attachMedia(videoElement);
+            
+            // 初始化Video.js UI
+            this.initializeVideoJs(videoElement, true);
+          }
+          // 原生支持HLS (iOS Safari)
+          else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+            videoElement.src = streamUrl;
+            videoElement.addEventListener('loadedmetadata', () => {
+              videoElement.play().catch(e => console.error('播放失败:', e));
+              this.videoLoading = false;
+            });
+            
+            // 错误处理
+            videoElement.addEventListener('error', (e) => {
+              console.error('视频加载错误:', e);
+              this.showMessage('直播流加载失败，请检查摄像头或网络连接', 'error');
+              this.videoLoading = false;
+            });
+            
+            // 初始化Video.js UI
+            this.initializeVideoJs(videoElement, true);
+          }
+          // 不支持HLS
+          else {
+            this.showMessage('您的浏览器不支持HLS直播，请使用最新版Chrome/Safari/Firefox', 'error');
+            this.videoLoading = false;
+            this.isLiveStreamActive = false;
+          }
+        });
+      } catch (error) {
+        console.error('播放实时流失败:', error);
+        this.showMessage(`无法获取实时监控流: ${error.message}`, 'error');
+        this.videoLoading = false;
+        this.isLiveStreamActive = false;
+      }
+    },
+    
+    // 设置HLS事件处理函数
+    setupHlsEventHandlers(streamUrl) {
+      if (!this.hlsInstance) return;
+      
+      // 清单解析完成后开始播放
+      this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('HLS实时流清单解析完成，开始播放');
+        const videoElement = this.$refs.videoPlayer;
+        if (videoElement) {
+          videoElement.play().catch(e => {
+            console.error('自动播放失败:', e);
+            this.showMessage('直播自动播放失败，请手动点击播放按钮', 'warning');
+          });
+        }
+        this.videoLoading = false;
+      });
+      
+      // 处理各种错误
+      this.hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+        console.warn('HLS错误:', data.type, data.details);
+        
+        if (data.fatal) {
+          console.error('HLS致命错误:', data.type, data.details);
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              this.showMessage(`直播加载失败：网络错误 (${data.details})，尝试恢复...`, 'error');
+              // 暂停1秒后重试加载
+              setTimeout(() => {
+                if (this.hlsInstance) {
+                  this.hlsInstance.startLoad();
+                }
+              }, 1000);
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              this.showMessage('直播解码错误，尝试恢复...', 'warning');
+              this.hlsInstance.recoverMediaError();
+              break;
+            default:
+              this.showMessage(`直播出错：${data.details}`, 'error');
+              this.videoLoading = false;
+              // 可能需要重新初始化播放器
+              setTimeout(() => {
+                if (this.isLiveStreamActive) {
+                  this.showMessage('尝试重新连接直播...', 'info');
+                  this.hlsInstance.destroy();
+                  this.hlsInstance = new Hls();
+                  this.setupHlsEventHandlers(streamUrl);
+                  this.hlsInstance.loadSource(streamUrl);
+                  this.hlsInstance.attachMedia(this.$refs.videoPlayer);
+                }
+              }, 3000);
+              break;
+          }
+        }
+      });
+      
+      // 流加载成功
+      this.hlsInstance.on(Hls.Events.LEVEL_LOADED, () => {
+        console.log('HLS流加载成功');
+      });
+    },
+    
+    // 获取播放器标题
+    getPlayerTitle() {
+      if (this.isLiveStreamActive) {
+        return '实时监控';
+      } else if (this.selectedVideo) {
+        return this.formatVideoName(this.selectedVideo.filename);
+      } else {
+        return '视频回放系统';
+      }
+    },
+    
+    // 初始化滚动事件处理
+    initializeScrollEvents() {
+      // 获取滚动容器
+      const container = document.querySelector('.video-list-container');
+      if (!container) return;
+      
+      // 确保滚动事件正常工作
+      container.addEventListener('wheel', (e) => {
+        // 阻止事件冒泡，确保滚动事件不被父元素捕获
+        e.stopPropagation();
+      });
+      
+      // 对触摸设备进行优化
+      container.addEventListener('touchstart', () => {}, {passive: true});
+      
+      // 添加辅助函数帮助滚动到底部
+      this.testScrollToBottom();
+      
+      console.log('滚动事件监听器已初始化');
+    },
+    
+    // 添加测试滚动到底部的方法
+    testScrollToBottom() {
+      setTimeout(() => {
+        const container = document.querySelector('.video-list-container');
+        if (container) {
+          // 添加滚动到底部的按钮(仅用于调试)
+          const debugDiv = document.createElement('div');
+          debugDiv.style.position = 'fixed';
+          debugDiv.style.bottom = '10px';
+          debugDiv.style.right = '10px';
+          debugDiv.style.zIndex = '9999';
+          debugDiv.style.opacity = '0';  // 设为透明
+          debugDiv.style.pointerEvents = 'none';  // 不接收鼠标事件
+          
+          // 实现滚动到底部的功能
+          const scrollToBottom = () => {
+            if (container) {
+              container.scrollTop = container.scrollHeight;
+              console.log('尝试滚动到底部', container.scrollTop, container.scrollHeight);
+            }
+          };
+          
+          // 初次加载时尝试滚动到顶部（重置位置）
+          container.scrollTop = 0;
+          
+          // 监听列表内容变化，自动调整滚动位置
+          const videoListObserver = new MutationObserver((mutations) => {
+            // 如果列表内容变化，确保滚动正常工作
+            setTimeout(() => {
+              // 确保滚动条可以到达底部
+              container.style.paddingBottom = '60px';
+            }, 200);
+          });
+          
+          // 观察列表内容变化
+          const videoListContainer = document.querySelector('.video-grid') || document.querySelector('.video-list');
+          if (videoListContainer) {
+            videoListObserver.observe(videoListContainer, {
+              childList: true,
+              subtree: true
+            });
+          }
+          
+          document.body.appendChild(debugDiv);
+        }
+      }, 1000);
+    },
+    
+    // 在视图模式切换时调整滚动位置
+    watch: {
+      viewMode(newMode, oldMode) {
+        if (newMode !== oldMode) {
+          // 在DOM更新后调整滚动位置
+          this.$nextTick(() => {
+            const container = document.querySelector('.video-list-container');
+            if (container) {
+              // 重置滚动位置到顶部
+              container.scrollTop = 0;
+            }
+          });
+        }
+      }
+    }
+  }
+}
+</script>
+
+<style scoped>
+/* 基本容器 */
+.app-container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 头部样式 */
+.header {
+  height: var(--header-height);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  background-color: var(--panel-bg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-section i {
+  font-size: 24px;
+  color: var(--primary-color);
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* 主内容布局 */
+.main-content {
+  display: flex;
+  flex: 1;
+  height: calc(100vh - var(--header-height));
+  overflow: hidden;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+  width: 320px;
+  background-color: var(--panel-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: width 0.3s ease, transform 0.3s ease;
+  height: 100%;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+  width: 320px;
+}
+
+.recordings-browser {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.sidebar-header {
+  flex-shrink: 0;
+}
+
+.sidebar-scroll-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  height: calc(100% - 114px); /* 减去头部高度 */
+  background-color: var(--panel-bg);
+  padding-bottom: 5px; /* 添加底部内边距 */
+}
+
+/* 内容区域样式 */
+.content-area {
+  flex: 1;
+  background-color: var(--background-color);
+  overflow-y: auto;
+  padding: 20px;
+  transition: padding 0.3s ease;
+}
+
+.content-area.full-width {
+  padding-left: 20px;
+}
+
+/* 面板通用样式 */
+.panel-header {
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--panel-bg);
+}
+
+.panel-header.with-controls {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.panel-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* 按钮样式 */
+.btn {
+  padding: 8px 14px;
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.btn i {
+  font-size: 14px;
+}
+
+.btn:hover {
+  background-color: #f8f9fa;
+  border-color: #d0d7de;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.view-toggle .btn {
+  border: none;
+  border-radius: 0;
+  background-color: var(--panel-bg);
+  padding: 6px 8px;
+}
+
+.view-toggle .btn.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.close-btn {
+  background-color: var(--light-grey);
+  color: var(--dark-grey);
+}
+
+.close-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.refresh-btn {
+  padding: 6px;
+}
+
+/* 筛选栏 */
+.filter-bar {
+  display: flex;
+  padding: 12px;
+  background-color: var(--panel-bg);
+  border-bottom: 1px solid var(--border-color);
+  gap: 10px;
+}
+
+.search-bar {
+  flex: 1;
+  position: relative;
+}
+
+.search-bar i {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dark-grey);
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 8px 8px 8px 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-color);
+}
+
+/* 视频列表容器 */
+.video-list-container {
+  overflow-y: auto;
+  height: 100%;
+  padding: 12px;
+  padding-bottom: 30px; /* 增加底部内边距，确保最后一项可以完全滚动上来 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) var(--light-grey);
+  -webkit-overflow-scrolling: touch; /* 在iOS上平滑滚动 */
+}
+
+.video-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.video-list-container::-webkit-scrollbar-track {
+  background: var(--light-grey);
+  border-radius: 4px;
+}
+
+.video-list-container::-webkit-scrollbar-thumb {
+  background-color: var(--primary-color);
+  border-radius: 4px;
+}
+
+/* 改进视频网格和列表视图 */
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 15px;
+  padding: 15px;
+  min-height: 100%;
+  margin-bottom: 50px; /* 增加底部边距，确保可以滚动到最后一个 */
+}
+
+.video-card {
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  border: 2px solid transparent;
+}
+
+.video-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+}
+
+.video-card.selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.thumbnail {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-top: 56.25%; /* 16:9 宽高比 */
+  overflow: hidden;
+}
+
+.thumbnail img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.video-card:hover .thumbnail img {
+  transform: scale(1.05);
+}
+
+.duration {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.video-info {
+  padding: 8px;
+}
+
+.video-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.video-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+/* 视频列表视图 */
+.video-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 5px;
+  min-height: 100%;
+  margin-bottom: 50px; /* 增加底部边距 */
+}
+
+.video-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-radius: 6px;
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.video-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
+  border-color: var(--primary-color);
+}
+
+.video-item.selected {
+  border-color: var(--primary-color);
+  background-color: rgba(52, 152, 219, 0.05);
+}
+
+.video-thumbnail {
+  width: 80px;
+  height: 45px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-right: 12px;
+  background-color: #000;
+  flex-shrink: 0;
+}
+
+.video-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.video-details {
+  flex: 1;
+}
+
+.video-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-light);
+}
+
+/* 录像回放界面 */
+.playback-view {
+  background-color: var(--panel-bg);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 3px 15px rgba(0,0,0,0.08);
+  height: 100%;
+}
+
+.no-video-selected {
+  background-color: rgba(0,0,0,0.02);
+  border-radius: 10px;
+  padding: 40px 20px;
+  height: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.no-video-selected i {
+  font-size: 80px;
+  color: var(--light-grey);
+  margin-bottom: 30px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.no-video-selected p {
+  font-size: 20px;
+  color: var(--text-color);
+  font-weight: 500;
+  text-align: center;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.no-recordings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 0;
+  color: var(--text-light);
+  background-color: rgba(0,0,0,0.02);
+  border-radius: 8px;
+  margin: 10px;
+  height: calc(100% - 20px);
+}
+
+.no-recordings i {
+  font-size: 70px;
+  margin-bottom: 25px;
+  color: #d0d7de;
+  opacity: 0.7;
+  animation: float 3s ease-in-out infinite;
+}
+
+.no-recordings p {
+  font-size: 18px;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+/* 视频播放区域 - 改进布局 */
+.video-player {
+  background-color: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  min-height: 400px;
+  position: relative; /* 确保加载指示器相对于这个容器定位 */
+}
+
+.video-wrapper {
+  width: 640px;
+  height: 360px;
+  max-width: 100%;
+  position: relative;
+  background-color: #000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Video.js自定义样式 */
+.video-js {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #000;
+}
+
+.vjs-tech {
+  object-fit: contain !important; /* 确保视频内容不被裁剪 */
+}
+
+/* 加载状态 - 改为内联显示，不再全屏覆盖 */
+.video-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: rgba(0,0,0,0.5);
+  border-radius: 8px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  color: white;
+  width: 150px;
+  height: 150px;
+}
+
+.video-loading p {
+  margin-top: 15px;
+  font-size: 14px;
+  color: #fff;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 消息提示 */
+.message-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  animation: slideIn 0.3s ease;
+  max-width: 300px;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.message-toast.success {
+  background-color: rgba(46, 204, 113, 0.95);
+  color: white;
+}
+
+.message-toast.error {
+  background-color: rgba(231, 76, 60, 0.95);
+  color: white;
+}
+
+.message-toast.warning {
+  background-color: rgba(243, 156, 18, 0.95);
+  color: white;
+}
+
+.message-toast.info {
+  background-color: rgba(52, 152, 219, 0.95);
+  color: white;
+}
+
+/* 实时流按钮 */
+.live-stream-button {
+  margin-left: 20px;
+}
+
+.live-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  transition: all 0.3s ease;
+}
+
+.live-btn:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+}
+
+.live-btn.active {
+  background-color: var(--danger-color);
+  animation: pulse 2s infinite;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(231, 76, 60, 0.1);
+  padding: 5px 10px;
+  border-radius: 15px;
+  color: var(--danger-color);
+  font-size: 12px;
+  font-weight: 500;
+  margin-right: 10px;
+}
+
+.live-indicator i {
+  font-size: 10px;
+}
+
+.blink {
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(231, 76, 60, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+  }
+}
+
+/* 响应式调整，确保在不同屏幕尺寸下滚动正常 */
+@media (max-width: 1200px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    max-height: 300px;
+  }
+  
+  .sidebar.collapsed {
+    max-height: 40px;
+    width: 100%;
+  }
+  
+  .sidebar-scroll-container {
+    height: calc(100% - 114px);
+  }
+  
+  .video-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+  
+  .content-area.full-width {
+    padding-left: 20px;
+    padding-top: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 15px;
+  }
+  
+  .logo-section {
+    margin-bottom: 10px;
+  }
+  
+  .video-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  
+  .live-stream-button {
+    margin-left: 0;
+    width: 100%;
+  }
+  
+  .live-btn {
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+  }
+}
+
+.vjs-theme-forest {
+  --vjs-theme-forest--primary: var(--primary-color);
+}
+
+/* 隐藏侧边栏切换按钮 */
+.sidebar-toggle {
+  display: none !important;
+}
+</style> 

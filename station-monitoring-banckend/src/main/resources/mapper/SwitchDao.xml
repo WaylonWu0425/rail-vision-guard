@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.SwitchMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.Switch" id="SwitchMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="trackId" column="track_id" jdbcType="INTEGER"/>
+        <result property="field" column="field" jdbcType="INTEGER"/>
+        <result property="throat" column="throat" jdbcType="VARCHAR"/>
+        <result property="switchPresetPointId" column="switch_preset_point_id" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <!--查询单个-->
+    <select id="queryById" resultMap="SwitchMap">
+        select
+id, track_id, field, throat, switch_preset_point_id
+        from switch
+        where id = #{id}
+    </select>
+
+    <!--查询指定行数据-->
+    <select id="getSwitchID" resultMap="SwitchMap">
+        select
+id, track_id, field, throat, switch_preset_point_id
+        from switch
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="trackId != null">
+                and track_id = #{trackId}
+            </if>
+            <if test="field != null">
+                and field = #{field}
+            </if>
+            <if test="throat != null and throat != ''">
+                and throat = #{throat}
+            </if>
+            <if test="switchPresetPointId != null">
+                and switch_preset_point_id = #{switchPresetPointId}
+            </if>
+        </where>
+    </select>
+
+    <!--统计总行数-->
+    <select id="count" resultType="java.lang.Long">
+        select count(1)
+        from switch
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="trackId != null">
+                and track_id = #{trackId}
+            </if>
+            <if test="field != null">
+                and field = #{field}
+            </if>
+            <if test="throat != null and throat != ''">
+                and throat = #{throat}
+            </if>
+            <if test="switchPresetPointId != null">
+                and switch_preset_point_id = #{switchPresetPointId}
+            </if>
+        </where>
+    </select>
+
+    <!--新增所有列-->
+    <insert id="insertSwitch" keyProperty="id" useGeneratedKeys="true">
+        insert into switch(track_id, field, throat, switch_preset_point_id)
+        values (#{trackId}, #{field}, #{throat}, #{switchPresetPointId})
+    </insert>
+
+    <insert id="insertBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into switch(track_id, field, throat, switch_preset_point_id)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+        (#{entity.trackId}, #{entity.field}, #{entity.throat}, #{entity.switchPresetPointId})
+        </foreach>
+    </insert>
+
+    <insert id="insertOrUpdateBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into switch(track_id, field, throat, switch_preset_point_id)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.trackId}, #{entity.field}, #{entity.throat}, #{entity.switchPresetPointId})
+        </foreach>
+        on duplicate key update
+track_id = values(track_id),
+field = values(field),
+throat = values(throat),
+switch_preset_point_id = values(switch_preset_point_id)
+    </insert>
+
+    <!--通过主键修改数据-->
+    <update id="updateSwitch">
+        update switch
+        <set>
+            <if test="trackId != null">
+                track_id = #{trackId},
+            </if>
+            <if test="field != null">
+                field = #{field},
+            </if>
+            <if test="throat != null and throat != ''">
+                throat = #{throat},
+            </if>
+            <if test="switchPresetPointId != null">
+                switch_preset_point_id = #{switchPresetPointId},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!--通过主键删除-->
+    <delete id="deleteById">
+        delete from switch where id = #{id}
+    </delete>
+
+    <!--搜索-->
+    <select id="search" resultMap="SwitchMap">
+        select
+        id, track_id, field, throat, switch_preset_point_id
+        from switch
+        <where>
+            <if test="trackId != null">
+                and track_id = #{trackId}
+            </if>
+            <if test="field != null">
+                and field = #{field}
+            </if>
+            <if test="throat != null and throat != ''">
+                and throat = #{throat}
+            </if>
+        </where>
+    </select>
+
+</mapper>
+

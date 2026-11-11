@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.CameraMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.Camera" id="CameraMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="name" column="name" jdbcType="VARCHAR"/>
+        <result property="productNumber" column="product_number" jdbcType="INTEGER"/>
+        <result property="status" column="status" jdbcType="BIT"/>
+        <result property="ip" column="ip" jdbcType="VARCHAR"/>
+        <result property="type" column="type" jdbcType="VARCHAR"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
+        <result property="port" column="port" jdbcType="INTEGER"/>
+        <result property="username" column="username" jdbcType="VARCHAR"/>
+        <result property="password" column="password" jdbcType="VARCHAR"/>
+        <result property="bridgeType" column="bridgeType" jdbcType="INTEGER"/>
+        <result property="initViewPoint" column="initViewPoint" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <!--查询单个-->
+    <select id="queryById" resultMap="CameraMap">
+        select
+id, name, product_number, status, ip, type, create_time, update_time, port, username, password, bridgeType, initViewPoint
+        from camera
+        where id = #{id}
+    </select>
+
+    <!--查询指定行数据-->
+    <select id="queryAllByLimit" resultMap="CameraMap">
+        select
+id, name, product_number, status, ip, type, create_time, update_time, port, username, password, bridgeType, initViewPoint
+        from camera
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="name != null and name != ''">
+                and name = #{name}
+            </if>
+            <if test="productNumber != null">
+                and product_number = #{productNumber}
+            </if>
+            <if test="status != null">
+                and status = #{status}
+            </if>
+            <if test="ip != null and ip != ''">
+                and ip = #{ip}
+            </if>
+            <if test="type != null and type != ''">
+                and type = #{type}
+            </if>
+            <if test="createTime != null">
+                and create_time = #{createTime}
+            </if>
+            <if test="updateTime != null">
+                and update_time = #{updateTime}
+            </if>
+            <if test="port != null">
+                and port = #{port}
+            </if>
+            <if test="username != null and username != ''">
+                and username = #{username}
+            </if>
+            <if test="password != null and password != ''">
+                and password = #{password}
+            </if>
+            <if test="bridgeType != null">
+                and bridgeType = #{bridgeType}
+            </if>
+            <if test="initViewPoint != null">
+                and initViewPoint = #{initViewPoint}
+            </if>
+        </where>
+    </select>
+
+    <!--统计总行数-->
+    <select id="count" resultType="java.lang.Long">
+        select count(1)
+        from camera
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="name != null and name != ''">
+                and name = #{name}
+            </if>
+            <if test="productNumber != null">
+                and product_number = #{productNumber}
+            </if>
+            <if test="status != null">
+                and status = #{status}
+            </if>
+            <if test="ip != null and ip != ''">
+                and ip = #{ip}
+            </if>
+            <if test="type != null and type != ''">
+                and type = #{type}
+            </if>
+            <if test="createTime != null">
+                and create_time = #{createTime}
+            </if>
+            <if test="updateTime != null">
+                and update_time = #{updateTime}
+            </if>
+            <if test="port != null">
+                and port = #{port}
+            </if>
+            <if test="username != null and username != ''">
+                and username = #{username}
+            </if>
+            <if test="password != null and password != ''">
+                and password = #{password}
+            </if>
+            <if test="bridgetype != null">
+                and bridgeType = #{bridgeType}
+            </if>
+            <if test="initviewpoint != null">
+                and initViewPoint = #{initViewPoint}
+            </if>
+        </where>
+    </select>
+
+    <!--新增所有列-->
+    <insert id="insertCamera" keyProperty="id" useGeneratedKeys="true">
+        insert into camera(name, product_number, status, ip, type, create_time, update_time, port, username, password, bridgeType, initViewPoint)
+        values (#{name}, #{productNumber}, #{status}, #{ip}, #{type}, #{createTime}, #{updateTime}, #{port}, #{username}, #{password}, #{bridgeType}, #{initViewPoint})
+    </insert>
+
+    <insert id="insertBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into camera(name, product_number, status, ip, type, create_time, update_time, port, username, password, bridgeType, initViewPoint)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+        (#{entity.name}, #{entity.productNumber}, #{entity.status}, #{entity.ip}, #{entity.type}, #{entity.createTime}, #{entity.updateTime}, #{entity.port}, #{entity.username}, #{entity.password}, #{entity.bridgeType}, #{entity.initViewPoint})
+        </foreach>
+    </insert>
+
+    <insert id="insertOrUpdateBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into camera(name, product_number, status, ip, type, create_time, update_time, port, username, password, bridgeType, initViewPoint)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.name}, #{entity.productNumber}, #{entity.status}, #{entity.ip}, #{entity.type}, #{entity.createTime}, #{entity.updateTime}, #{entity.port}, #{entity.username}, #{entity.password}, #{entity.bridgeType}, #{entity.initViewPoint})
+        </foreach>
+        on duplicate key update
+name = values(name),
+product_number = values(product_number),
+status = values(status),
+ip = values(ip),
+type = values(type),
+create_time = values(create_time),
+update_time = values(update_time),
+port = values(port),
+username = values(username),
+password = values(password),
+bridgeType = values(bridgeType),
+initViewPoint = values(initViewPoint)
+    </insert>
+
+    <!--通过主键修改数据-->
+    <update id="updateCameraById">
+        update camera
+        <set>
+            <if test="name != null and name != ''">
+                name = #{name},
+            </if>
+            <if test="productNumber != null">
+                product_number = #{productNumber},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="ip != null and ip != ''">
+                ip = #{ip},
+            </if>
+            <if test="type != null and type != ''">
+                type = #{type},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime},
+            </if>
+            <if test="port != null">
+                port = #{port},
+            </if>
+            <if test="username != null and username != ''">
+                username = #{username},
+            </if>
+            <if test="password != null and password != ''">
+                password = #{password},
+            </if>
+            <if test="bridgeType != null">
+                bridgeType = #{bridgeType},
+            </if>
+            <if test="initViewPoint != null">
+                initViewPoint = #{initViewPoint},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!--通过主键删除-->
+    <delete id="deleteCameraById">
+        delete from camera where id = #{id}
+    </delete>
+
+</mapper>
+

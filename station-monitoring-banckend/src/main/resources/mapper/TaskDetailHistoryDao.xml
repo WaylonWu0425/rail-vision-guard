@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.TaskDetailHistoryMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.TaskDetailHistory" id="TaskDetailHistoryMap">
+        <result property="historyId" column="historyId" jdbcType="INTEGER"/>
+        <result property="taskId" column="taskId" jdbcType="INTEGER"/>
+        <result property="title" column="title" jdbcType="VARCHAR"/>
+        <result property="type" column="type" jdbcType="VARCHAR"/>
+        <result property="priority" column="priority" jdbcType="VARCHAR"/>
+        <result property="status" column="status" jdbcType="VARCHAR"/>
+        <result property="statusTime" column="status_time" jdbcType="TIMESTAMP"/>
+        <result property="feedback" column="feedback" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <select id="getAllTaskDetailHistory" resultMap="TaskDetailHistoryMap">
+        SELECT
+        th.id AS historyId,
+        t.id AS taskId,
+        t.title,
+        t.type,
+        t.priority,
+        th.status,
+        th.status_time,
+        th.feedback
+        FROM
+        task_history th
+        LEFT JOIN
+        task t ON th.task_id = t.id
+        <where>
+            <if test="search != null and search != ''">
+                AND t.title LIKE CONCAT('%', #{search}, '%')
+            </if>
+            <if test="type != null and type != ''">
+                AND t.type = #{type}
+            </if>
+            <if test="status != null and status != ''">
+                AND th.status = #{status}
+            </if>
+            <if test="startDate != null">
+                AND th.status_time &gt;= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND th.status_time &lt;= #{endDate}
+            </if>
+        </where>
+        ORDER BY th.status_time DESC
+        LIMIT #{page}, #{size}
+    </select>
+
+    <!--获取所有操作历史-->
+    <select id="countTaskHistoryList" resultType="int">
+        SELECT COUNT(*) count
+        FROM
+        task_history th
+        LEFT JOIN
+        task t ON th.task_id = t.id
+        <where>
+            <if test="search != null and search != ''">
+                AND t.title LIKE CONCAT('%', #{search}, '%')
+            </if>
+            <if test="type != null and type != ''">
+                AND t.type = #{type}
+            </if>
+            <if test="status != null and status != ''">
+                AND th.status = #{status}
+            </if>
+            <if test="startDate != null">
+                AND th.status_time &gt;= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND th.status_time &lt;= #{endDate}
+            </if>
+        </where>
+        ORDER BY th.status_time, task_id DESC
+    </select>
+
+    <select id="getAllTaskDetailHistoryByUserId" resultMap="TaskDetailHistoryMap">
+        SELECT
+        th.id as historyId,
+        t.id as taskId,
+        t.title,
+        t.type,
+        t.priority,
+        th.status,
+        th.status_time,
+        th.feedback
+        FROM
+        task_history th
+        LEFT JOIN
+        task t ON th.task_id = t.id
+        WHERE
+        t.assigned_to_id = #{userId}
+        <if test="search != null and search != ''">
+            AND (t.title LIKE CONCAT('%', #{search}, '%')
+            OR t.description LIKE CONCAT('%', #{search}, '%'))
+        </if>
+        <if test="status != null and status != ''">
+            AND th.status = #{status}
+        </if>
+        <if test="type != null and type != ''">
+            AND t.type = #{type}
+        </if>
+        <if test="startDate != null">
+            AND DATE(th.status_time) >= DATE(#{startDate})
+        </if>
+        <if test="endDate != null">
+            AND DATE(th.status_time) &lt;= DATE(#{endDate})
+        </if>
+        ORDER BY
+        th.status_time DESC
+        LIMIT #{page}, #{size}
+    </select>
+
+    <!-- 统计任务历史记录总数 -->
+    <select id="countTaskHistoryListByUserId" parameterType="map" resultType="java.lang.Integer">
+        SELECT
+        COUNT(*)
+        FROM
+        task_history th
+        LEFT JOIN
+        task t ON th.task_id = t.id
+        WHERE
+        t.assigned_to_id = #{userId}
+        <if test="search != null and search != ''">
+            AND (t.title LIKE CONCAT('%', #{search}, '%')
+            OR t.description LIKE CONCAT('%', #{search}, '%'))
+        </if>
+        <if test="status != null and status != ''">
+            AND th.status = #{status}
+        </if>
+        <if test="type != null and type != ''">
+            AND t.type = #{type}
+        </if>
+        <if test="startDate != null">
+            AND DATE(th.status_time) >= DATE(#{startDate})
+        </if>
+        <if test="endDate != null">
+            AND DATE(th.status_time) &lt;= DATE(#{endDate})
+        </if>
+    </select>
+</mapper>

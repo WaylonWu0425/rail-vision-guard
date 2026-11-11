@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.SwitchPresetPointMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.SwitchPresetPoint" id="SwitchPresetPointMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="panPosition" column="pan_position" jdbcType="INTEGER"/>
+        <result property="tiltPosition" column="tilt_position" jdbcType="INTEGER"/>
+        <result property="zoom" column="zoom" jdbcType="INTEGER"/>
+        <result property="switchNumber" column="switch_number" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <!--查询一组消息-->
+    <select id="getSwitchPresetPoint" resultMap="SwitchPresetPointMap">
+        SELECT
+            spp.id,
+            spp.pan_position,
+            spp.tilt_position,
+            spp.zoom,
+            spp.switch_number
+        FROM switch s
+                 JOIN switch_preset_point spp ON s.switch_preset_point_id = spp.id
+        WHERE s.field = #{field}
+          AND s.track_id = #{trackId}
+          AND s.throat = #{throat}
+    </select>
+    <!--查询单个-->
+    <select id="queryById" resultMap="SwitchPresetPointMap">
+        select
+id, pan_position, tilt_position, zoom, switch_number
+        from switch_preset_point
+        where id = #{id}
+    </select>
+
+    <!--查询指定行数据-->
+    <select id="queryAllByLimit" resultMap="SwitchPresetPointMap">
+        select
+id, pan_position, tilt_position, zoom, switch_number
+        from switch_preset_point
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="panPosition != null">
+                and pan_position = #{panPosition}
+            </if>
+            <if test="tiltPosition != null">
+                and tilt_position = #{tiltPosition}
+            </if>
+            <if test="zoom != null">
+                and zoom = #{zoom}
+            </if>
+            <if test="switchNumber != null and switchNumber != ''">
+                and switch_number = #{switchNumber}
+            </if>
+        </where>
+        limit #{pageable.offset}, #{pageable.pageSize}
+    </select>
+
+    <!--统计总行数-->
+    <select id="count" resultType="java.lang.Long">
+        select count(1)
+        from switch_preset_point
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="panPosition != null">
+                and pan_position = #{panPosition}
+            </if>
+            <if test="tiltPosition != null">
+                and tilt_position = #{tiltPosition}
+            </if>
+            <if test="zoom != null">
+                and zoom = #{zoom}
+            </if>
+            <if test="switchNumber != null and switchNumber != ''">
+                and switch_number = #{switchNumber}
+            </if>
+        </where>
+    </select>
+
+    <!--新增所有列-->
+    <insert id="insertSwitchPresetPoint" keyProperty="id" useGeneratedKeys="true">
+        insert into switch_preset_point(pan_position, tilt_position, zoom, switch_number)
+        values (#{panPosition}, #{tiltPosition}, #{zoom}, #{switchNumber})
+    </insert>
+
+    <insert id="insertBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into switch_preset_point(pan_position, tilt_position, zoom, switch_number)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+        (#{entity.panPosition}, #{entity.tiltPosition}, #{entity.zoom}, #{entity.switchNumber})
+        </foreach>
+    </insert>
+
+    <insert id="insertOrUpdateBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into switch_preset_point(pan_position, tilt_position, zoom, switch_number)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.panPosition}, #{entity.tiltPosition}, #{entity.zoom}, #{entity.switchNumber})
+        </foreach>
+        on duplicate key update
+pan_position = values(pan_position),
+tilt_position = values(tilt_position),
+zoom = values(zoom),
+switch_number = values(switch_number)
+    </insert>
+
+    <!--通过主键修改数据-->
+    <update id="update">
+        update switch_preset_point
+        <set>
+            <if test="panPosition != null">
+                pan_position = #{panPosition},
+            </if>
+            <if test="tiltPosition != null">
+                tilt_position = #{tiltPosition},
+            </if>
+            <if test="zoom != null">
+                zoom = #{zoom},
+            </if>
+            <if test="switchNumber != null and switchNumber != ''">
+                switch_number = #{switchNumber},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!--通过主键删除-->
+    <delete id="deleteById">
+        delete from switch_preset_point where id = #{id}
+    </delete>
+
+</mapper>
+

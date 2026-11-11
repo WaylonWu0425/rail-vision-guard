@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.PresetPointMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.PresetPoint" id="PresetPointMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="panPosition" column="pan_position" jdbcType="INTEGER"/>
+        <result property="tiltPosition" column="tilt_position" jdbcType="INTEGER"/>
+        <result property="zoom" column="zoom" jdbcType="INTEGER"/>
+        <result property="smallRange" column="small_range" jdbcType="INTEGER"/>
+        <result property="wideRange" column="wide_range" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <!--查询单个-->
+    <select id="queryById" resultMap="PresetPointMap">
+        select
+id, pan_position, tilt_position, zoom, small_range, wide_range
+        from preset_point
+        where id = #{id}
+    </select>
+
+    <!--查询指定行数据-->
+    <select id="queryAllByLimit" resultMap="PresetPointMap">
+        select
+id, pan_position, tilt_position, zoom, small_range, wide_range
+        from preset_point
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="panPosition != null">
+                and pan_position = #{panPosition}
+            </if>
+            <if test="tiltPosition != null">
+                and tilt_position = #{tiltPosition}
+            </if>
+            <if test="zoom != null">
+                and zoom = #{zoom}
+            </if>
+            <if test="smallRange != null">
+                and small_range = #{smallRange}
+            </if>
+            <if test="wideRange != null">
+                and wide_range = #{wideRange}
+            </if>
+        </where>
+    </select>
+
+    <!--统计总行数-->
+    <select id="count" resultType="java.lang.Long">
+        select count(1)
+        from preset_point
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="panPositon != null">
+                and pan_positon = #{panPosition}
+            </if>
+            <if test="tiltPositon != null">
+                and tilt_positon = #{tiltPosition}
+            </if>
+            <if test="zoom != null">
+                and zoom = #{zoom}
+            </if>
+            <if test="smallRange != null">
+                and small_range = #{smallRange}
+            </if>
+            <if test="wideRange != null">
+                and wide_range = #{wideRange}
+            </if>
+        </where>
+    </select>
+
+    <!--新增所有列-->
+    <insert id="insertPresetPoint" keyProperty="id" useGeneratedKeys="true">
+        insert into preset_point(pan_position, tilt_position, zoom, small_range, wide_range)
+        values (#{panPosition}, #{tiltPosition}, #{zoom}, #{smallRange}, #{wideRange})
+    </insert>
+
+    <insert id="insertBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into preset_point(pan_position, tilt_position, zoom, small_range, wide_range)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+        (#{entity.panPosition}, #{entity.tiltPosition}, #{entity.zoom}, #{entity.smallRange}, #{entity.wideRange})
+        </foreach>
+    </insert>
+
+    <insert id="insertOrUpdateBatch" keyProperty="id" useGeneratedKeys="true">
+        insert into preset_point(pan_position, tilt_position, zoom, small_range, wide_range)
+        values
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.panPosition}, #{entity.tiltPosition}, #{entity.zoom}, #{entity.smallRange}, #{entity.wideRange})
+        </foreach>
+        on duplicate key update
+pan_position = values(pan_position),
+tilt_position = values(tilt_position),
+zoom = values(zoom),
+small_range = values(small_range),
+wide_range = values(wide_range)
+    </insert>
+
+    <!--通过主键修改数据-->
+    <update id="updatePresetPoint">
+        update preset_point
+        <set>
+            <if test="panPosition != null">
+                pan_position = #{panPosition},
+            </if>
+            <if test="tiltPosition != null">
+                tilt_position = #{tiltPosition},
+            </if>
+            <if test="zoom != null">
+                zoom = #{zoom},
+            </if>
+            <if test="smallRange != null">
+                small_range = #{smallRange},
+            </if>
+            <if test="wideRange != null">
+                wide_range = #{wideRange},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!--通过主键删除-->
+    <delete id="deleteById">
+        delete from preset_point where id = #{id}
+    </delete>
+
+</mapper>
+

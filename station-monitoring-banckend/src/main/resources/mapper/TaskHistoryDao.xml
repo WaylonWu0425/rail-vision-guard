@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzy.sms.stationmonitoringbanckend.mapper.TaskHistoryMapper">
+
+    <resultMap type="com.zzy.sms.stationmonitoringbanckend.entity.TaskHistory" id="TaskHistoryMap">
+        <result property="id" column="id" jdbcType="INTEGER"/>
+        <result property="taskId" column="task_id" jdbcType="INTEGER"/>
+        <result property="status" column="status" jdbcType="VARCHAR"/>
+        <result property="statusTime" column="status_time" jdbcType="TIMESTAMP"/>
+        <result property="feedback" column="feedback" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <!--增加任务的历史状态-->
+    <insert id="insertTaskHistory" keyProperty="id" useGeneratedKeys="true">
+        insert into task_history(task_id, status, status_time, feedback)
+        values (#{taskId}, #{status}, #{statusTime}, #{feedback})
+    </insert>
+
+    <!--查询指定行数据-->
+    <select id="selectTaskStepById" resultMap="TaskHistoryMap">
+        select
+id, task_id, status, status_time, feedback
+        from task_history
+        where task_id = #{id}
+    </select>
+
+</mapper>

@@ -1,0 +1,23 @@
+CamVue2.py 是基于Flask + opencv + yolo 进行目标检测的web应用
+flask ：创建Web服务器处理界面API
+OpenCv:处理图像，以及视频流数据
+YOLO：用于实时目标检测
+
+当然，这些都是建立在预训练模型里面。
+
+<datasets 是我们的数据集，用于模型训练
+<models 是训练好的模型， .pt格式
+<runs -- train 是训练好的结果
+<save_data 是图片视频存储文件
+<TestFile 主要用于测试
+
+train.py 就是我们的模型训练代码
+*test.py 文件主要用于功能测试 
+
+但是我发现这个模型为什么在你这有点混乱
+刚刚我看检测标签有个car?? 离谱了
+这个代码的化自己也可以训练模型
+运行train.py文件即可开始进行模型训练,训练结果会默认保存在runs/detect目录中
+<datasets --data.yaml     里面的 train and val 可修改为自己的数据集 绝对路径
+
+pip install flask flask-cors opencv-python ultralytics sqlalchemy pymysql
