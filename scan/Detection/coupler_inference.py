@@ -1,4 +1,5 @@
 """Local NCNN inference for supplied freight-car/coupler weights. No alarm writes."""
+import os
 import sys
 import time
 from pathlib import Path
@@ -9,7 +10,7 @@ import cv2
 import ncnn
 import numpy as np
 
-MODEL = ROOT.parent.parent.parent / '模型'
+MODEL = Path(os.environ.get('RAIL_COUPLER_MODEL_DIR') or ROOT / 'models')
 LABELS = ('freight car', 'coupler_far', 'couplers', 'coupler_near')
 
 
@@ -21,16 +22,25 @@ class CouplerDetector:
         if self.net.load_model(str(MODEL / 'best12_20.bin')) != 0:
             raise RuntimeError('无法加载老师提供的 NCNN 权重文件')
 
-    def predict(self, bgr, confidence=0.45):
+    def predict(self, bgr, confidence=None, profile='web640'):
+        if profile not in ('web640', 'apk320'):
+            raise ValueError('未知推理配置')
+        # APK uses a 320-pixel long edge followed by padding to a 32-pixel grid.
+        # This is an input/threshold comparison profile, not a claim of binary parity.
+        limit = 320 if profile == 'apk320' else 640
+        confidence = (0.40 if profile == 'apk320' else 0.45) if confidence is None else confidence
         start = time.perf_counter()
         h, w = bgr.shape[:2]
-        ratio = min(640 / w, 640 / h)
-        nw, nh = round(w * ratio), round(h * ratio)
+        ratio = min(limit / w, limit / h)
+        resize = int if profile == 'apk320' else round
+        nw, nh = max(1, resize(w * ratio)), max(1, resize(h * ratio))
         scaled = cv2.resize(bgr, (nw, nh))
-        left, top = (640 - nw) // 2, (640 - nh) // 2
-        padded = cv2.copyMakeBorder(scaled, top, 640 - nh - top, left, 640 - nw - left,
+        canvas_w = (nw + 31) // 32 * 32 if profile == 'apk320' else 640
+        canvas_h = (nh + 31) // 32 * 32 if profile == 'apk320' else 640
+        left, top = (canvas_w - nw) // 2, (canvas_h - nh) // 2
+        padded = cv2.copyMakeBorder(scaled, top, canvas_h - nh - top, left, canvas_w - nw - left,
                                     cv2.BORDER_CONSTANT, value=(114, 114, 114))
-        mat = ncnn.Mat.from_pixels(padded, ncnn.Mat.PixelType.PIXEL_BGR, 640, 640)
+        mat = ncnn.Mat.from_pixels(padded, ncnn.Mat.PixelType.PIXEL_BGR, canvas_w, canvas_h)
         mat.substract_mean_normalize([], [1 / 255] * 3)
         ex = self.net.create_extractor()
         if ex.input('images', mat) != 0:
@@ -39,7 +49,8 @@ class CouplerDetector:
         if status != 0:
             raise RuntimeError('模型输出失败')
         raw = np.asarray(output).reshape(-1, 68)
-        if raw.shape != (8400, 68):
+        expected = sum((canvas_w // s) * (canvas_h // s) for s in (8, 16, 32))
+        if raw.shape != (expected, 68):
             raise RuntimeError(f'模型输出形状异常：{raw.shape}')
         logits = np.clip(raw[:, 64:], -30, 30)
         scores = 1 / (1 + np.exp(-logits))
@@ -56,10 +67,10 @@ class CouplerDetector:
         centers = []
         strides = []
         for stride in (8, 16, 32):
-            size = 640 // stride
-            y, x = np.indices((size, size))
+            grid_w, grid_h = canvas_w // stride, canvas_h // stride
+            y, x = np.indices((grid_h, grid_w))
             centers.append(np.stack((x.ravel() + .5, y.ravel() + .5), axis=1) * stride)
-            strides.append(np.full(size * size, stride))
+            strides.append(np.full(grid_w * grid_h, stride))
         center = np.concatenate(centers)[selected]
         scale = np.concatenate(strides)[selected, None]
         xyxy = np.concatenate((center - distances[:, :2] * scale,

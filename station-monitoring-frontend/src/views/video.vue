@@ -40,13 +40,13 @@
             <input
               ref="recordingImportInput"
               type="file"
-              accept=".mp4,.webm,video/mp4,video/webm"
+              accept=".mp4,.webm,.avi,.mov,.mkv,.wmv,.flv,.mpg,.mpeg"
               class="recording-import-input"
               @change="importRecording"
             >
             <button class="btn import-btn" :disabled="importingRecording" @click="$refs.recordingImportInput.click()">
               <el-icon><Upload /></el-icon>
-              <span>{{ importingRecording ? '正在导入录像…' : '导入本地录像' }}</span>
+              <span>{{ importingRecording ? '正在转码并导入…' : '导入本地录像' }}</span>
             </button>
 
             <div class="filter-bar">
@@ -171,6 +171,8 @@
             <div class="panel-header with-controls">
               <h2>{{ getPlayerTitle() }}</h2>
               <div class="controls">
+                <router-link v-if="selectedVideo?.id" class="btn"
+                  :to="{ path: '/originalRecognition', query: { recording: selectedVideo.id } }">打开录像复核</router-link>
                 <button class="btn close-btn" @click="closeVideo">
                   <el-icon><Close /></el-icon> 关闭
                 </button>
@@ -321,8 +323,8 @@ export default {
     async importRecording(event) {
       const file = event.target.files?.[0];
       if (!file) return;
-      if (!/\.(mp4|webm)$/i.test(file.name)) {
-        this.showMessage('只能导入 MP4 或 WebM 录像', 'error');
+      if (!/\.(mp4|webm|avi|mov|mkv|wmv|flv|mpg|mpeg)$/i.test(file.name)) {
+        this.showMessage('不支持该视频格式', 'error');
         event.target.value = '';
         return;
       }
@@ -357,6 +359,7 @@ export default {
         const data = response.data;
         this.recordingLoadError = '';
         this.recordings = data.map(video => ({
+          id: video.id ?? null,
           filename: video.filename,
           path: `${this.videoServerUrl}/${encodeURIComponent(video.filename)}`,
           date: video.startedAt || this.formatDate(video.mtime),

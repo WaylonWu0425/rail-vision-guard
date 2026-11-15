@@ -20,12 +20,16 @@
 
 1. 安装项目各子目录依赖，并启动 MySQL 与 Redis。前端依赖记录在 `station-monitoring-frontend/package-lock.json`，后端依赖记录在 `station-monitoring-banckend/pom.xml`，检测服务依赖记录在 `scan/Detection/requirements-runtime.txt`。
 2. 将 `station-monitoring-banckend/src/main/resources/application.example.yaml` 复制为同目录的 `application.yaml`，根据本机数据库、Redis 与相关服务填写环境变量及连接参数。将 `scan/Detection/camera_config.example.json` 复制为 `camera_config.json`，按获授权的设备填写连接信息；无摄像头时保持示例设备禁用。
-3. 在 `station-monitoring-frontend/` 运行 `npm ci`、`npm run serve`。在 `station-monitoring-banckend/` 按 `pom.xml` 构建并启动 Spring Boot。检测服务的独立启动方式见 `scan/Detection/README` 和根目录 `DEMO_RUNBOOK.md`。
+3. 在 `station-monitoring-frontend/` 运行 `npm ci`、`npm run serve`。构建 Spring Boot 后端前，将获授权的摄像机厂商 SDK JAR 放到 `station-monitoring-banckend/src/main/resources/libs/netsdk-1.0-demo.jar`，并按 SDK 说明配置对应的原生库。检测服务的独立启动方式见 `scan/Detection/README` 和根目录 `DEMO_RUNBOOK.md`。
 4. 如需一次性演示启动，可参考 `start_demo.ps1`。运行前先核对其中的本机目录与端口配置。
 
 数据库首次部署可使用 `station-monitoring-db/station_monitoring_schema.sql` 建表。仓库不包含真实用户记录、摄像头口令或现场监控视频。
 
 ## 能力与验证
+
+「人车识别」支持从录像时间轴定位画面、切换同帧原图与标注、记录人工复核片段。「告警中心」按摄像头和发生时间关联录像。系统录像的复核意见可供已登录的操作人员交接查看，本地导入录像的标记随当前页面会话保留。
+
+在 `scan/Detection/` 运行 `python original_recognition.py` 启动人车识别服务（5002）。如需 AVI 等格式转码预览，运行 `python -m pip install ncnn imageio-ffmpeg` 安装配套依赖，再运行 `python coupler_service.py`（5003）。可用 `RAIL_FFMPEG_PATH` 指定 FFmpeg，或用 `RAIL_COUPLER_MODEL_DIR` 指定 NCNN 模型目录。录像管理后端导入非 MP4/WebM 文件时，从 `RAIL_FFMPEG_PATH` 或系统 `PATH` 调用 FFmpeg。
 
 现有模型 `best.pt` 用于人员、车辆检测。系统将检测结果与摄像头、时间、区域规则和截图证据关联，并支持人工核查。与检测效果有关的验证记录见 `docs/`；模型能力、受控演示和现场验证分别说明，不将单一演示结果概括为通用准确率。
 

@@ -1,4 +1,5 @@
 """No database/camera/model imports in unit tests; real inference is separate."""
+import base64
 import io
 import tempfile
 import time
@@ -75,6 +76,21 @@ class RecognitionTests(unittest.TestCase):
         frame = self.client.get(f"/original/jobs/{state['id']}/frame")
         self.assertEqual(frame.mimetype, 'image/jpeg')
         self.assertEqual(self.detector.calls, 1)
+
+    def test_snapshot_image_and_detection_share_same_frame(self):
+        self.image_request()
+        state = self.wait()
+        url = f"/original/jobs/{state['id']}/snapshot"
+        result = self.client.get(url).json['data']
+        raw = np.frombuffer(base64.b64decode(result['originalJpeg']), dtype=np.uint8)
+        image = cv2.imdecode(raw, cv2.IMREAD_COLOR)
+        self.assertEqual(image.shape[:2], (result['height'], result['width']))
+        self.assertEqual(result['frameIndex'], 1)
+        self.assertEqual(result['detections'], state['detections'])
+        self.assertTrue(result['frameUpdatedAt'])
+        unchanged = self.client.get(f"{url}?after=1").json['data']
+        self.assertNotIn('originalJpeg', unchanged)
+        self.assertEqual(unchanged['frameIndex'], state['frameIndex'])
 
     def test_video_each_frame_and_upload_removed(self):
         response = self.client.post('/original/jobs', data={'mode': 'video', 'file': (io.BytesIO(b'fake-input'), 'video.mp4')}, headers=self.headers)

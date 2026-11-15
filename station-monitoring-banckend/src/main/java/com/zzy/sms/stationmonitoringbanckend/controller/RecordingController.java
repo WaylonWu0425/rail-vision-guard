@@ -1,5 +1,6 @@
 package com.zzy.sms.stationmonitoringbanckend.controller;
 
+import cn.dev33.satoken.stp.StpUtil;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,7 +32,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 录像管理：文件保存在 recordings/，录像索引保存来源、摄像头和录制起止时间。
@@ -44,8 +47,10 @@ public class RecordingController {
     private static final String RECORDING_DIR = "recordings/";
     private static final long MAX_UPLOAD_SIZE_BYTES = 200L * 1024 * 1024;
     private static final int STREAM_BUFFER_SIZE = 64 * 1024;
+    private static final Set<String> REVIEW_OUTCOMES = Set.of("visible", "misread", "unclear");
     private final DataSource dataSource;
     private volatile boolean schemaReady = false;
+    private volatile boolean reviewSchemaReady = false;
 
     public RecordingController(DataSource dataSource) {
         this.dataSource = dataSource;
@@ -106,10 +111,35 @@ public class RecordingController {
     private boolean isSupportedVideo(String filename, String contentType) {
         if (filename == null) return false;
         String lower = filename.toLowerCase();
-        if (!(lower.endsWith(".mp4") || lower.endsWith(".webm"))) return false;
+        if (!(lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".avi")
+                || lower.endsWith(".mov") || lower.endsWith(".mkv") || lower.endsWith(".wmv")
+                || lower.endsWith(".flv") || lower.endsWith(".mpg") || lower.endsWith(".mpeg"))) return false;
         return contentType == null || contentType.isBlank()
                 || contentType.startsWith("video/")
                 || "application/octet-stream".equalsIgnoreCase(contentType);
+    }
+
+    private String ffmpegExecutable() {
+        String configured = System.getenv("RAIL_FFMPEG_PATH");
+        if (configured != null && !configured.isBlank()) return configured;
+        return "ffmpeg";
+    }
+
+    private void convertForBrowser(Path input, Path output) throws Exception {
+        Path log = Files.createTempFile(Files.createDirectories(dir().resolve(".transcoding")), "ffmpeg-", ".log");
+        try {
+            Process process = new ProcessBuilder(ffmpegExecutable(), "-nostdin", "-hide_banner", "-loglevel", "error",
+                    "-i", input.toString(), "-map", "0:v:0", "-map", "0:a:0?",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-crf", "23",
+                    "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-f", "mp4", "-y", output.toString())
+                    .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+            if (!process.waitFor(180, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IllegalArgumentException("视频转码超时，请截取较短片段后重试");
+            }
+            if (process.exitValue() != 0 || !Files.isRegularFile(output) || Files.size(output) == 0)
+                throw new IllegalArgumentException("视频无法转成浏览器可播放的 MP4，请检查源文件是否完整");
+        } finally { Files.deleteIfExists(log); }
     }
 
     private StreamingResponseBody streamFile(Path path, long start, long length) {
@@ -205,7 +235,7 @@ public class RecordingController {
         }
         if (!isSupportedVideo(file.getOriginalFilename(), file.getContentType())) {
             result.put("success", false);
-            result.put("msg", "仅支持 MP4 或 WebM 录像文件");
+            result.put("msg", "不支持该视频格式");
             return ResponseEntity.badRequest().body(result);
         }
         if (cameraId != null && cameraId <= 0) {
@@ -213,17 +243,19 @@ public class RecordingController {
             result.put("msg", "摄像头编号无效");
             return ResponseEntity.badRequest().body(result);
         }
+        Path temporarySource = null, converted = null;
         try {
             String original = file.getOriginalFilename();
-            String ext = ".webm";
-            if (original != null && original.lastIndexOf('.') >= 0) {
-                String candidate = original.substring(original.lastIndexOf('.')).toLowerCase();
-                if (candidate.equals(".mp4") || candidate.equals(".webm")) ext = candidate;
-            }
+            Path temporaryDir = Files.createDirectories(dir().resolve(".transcoding"));
+            temporarySource = Files.createTempFile(temporaryDir, "incoming-", ".video");
+            converted = Files.createTempFile(temporaryDir, "converted-", ".mp4");
+            file.transferTo(temporarySource.toFile());
+            convertForBrowser(temporarySource, converted);
+            if (Files.size(converted) > MAX_UPLOAD_SIZE_BYTES) throw new IllegalArgumentException("转码后超过 200 MB，请截取较短片段后重试");
             String ts = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-            String filename = "record_" + ts + "_" + UUID.randomUUID().toString().substring(0, 4) + ext;
+            String filename = "record_" + ts + "_" + UUID.randomUUID().toString().substring(0, 4) + ".mp4";
             Path target = dir().resolve(filename);
-            file.transferTo(target.toFile());
+            Files.move(converted, target);
             try {
                 saveIndex(filename, original, cameraId, parseTime(startedAt, "startedAt"),
                         parseTime(endedAt, "endedAt"), normalizeSource(source), Files.size(target));
@@ -243,6 +275,9 @@ public class RecordingController {
             result.put("success", false);
             result.put("msg", "保存录像失败: " + e.getMessage());
             return ResponseEntity.status(500).body(result);
+        } finally {
+            try { if (temporarySource != null) Files.deleteIfExists(temporarySource); } catch (Exception ignored) { }
+            try { if (converted != null) Files.deleteIfExists(converted); } catch (Exception ignored) { }
         }
     }
 
@@ -341,6 +376,121 @@ public class RecordingController {
         } catch (Exception e) {
             return ResponseEntity.status(500).build();
         }
+    }
+
+    private synchronized void ensureReviewSchema() throws SQLException {
+        if (reviewSchemaReady) return;
+        try (Connection conn = dataSource.getConnection(); Statement statement = conn.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE IF NOT EXISTS recording_review (" +
+                            "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY," +
+                            "recording_id BIGINT NOT NULL," +
+                            "reviewer_id BIGINT NOT NULL," +
+                            "request_id CHAR(36) NOT NULL," +
+                            "start_sec DOUBLE NOT NULL, end_sec DOUBLE NOT NULL, anchor_sec DOUBLE NOT NULL," +
+                            "outcome VARCHAR(16) NOT NULL, note VARCHAR(200) NOT NULL," +
+                            "created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)," +
+                            "UNIQUE KEY uk_recording_review_request (recording_id, reviewer_id, request_id)," +
+                            "KEY idx_recording_review (recording_id, created_at, id)" +
+                            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            reviewSchemaReady = true;
+        }
+    }
+
+    private Map<String, Object> reviewSource(Long recordingId) throws Exception {
+        ensureSchema();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT * FROM recording_index WHERE id = ?")) {
+            ps.setLong(1, recordingId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                Map<String, Object> item = toIndexMap(rs);
+                return Files.isRegularFile(resolveSafe((String) item.get("filename"))) ? item : null;
+            }
+        }
+    }
+
+    private Map<String, Object> reviewRow(ResultSet rs) throws SQLException {
+        return Map.of("id", rs.getLong("id"), "reviewerId", rs.getLong("reviewer_id"),
+                "start", rs.getDouble("start_sec"), "end", rs.getDouble("end_sec"),
+                "at", rs.getDouble("anchor_sec"), "outcome", rs.getString("outcome"),
+                "note", rs.getString("note"), "createdAt", rs.getTimestamp("created_at").toInstant().toString());
+    }
+
+    @GetMapping("/reviews/{recordingId}")
+    public ResponseEntity<?> reviews(@PathVariable Long recordingId) {
+        try {
+            Map<String, Object> source = reviewSource(recordingId);
+            if (source == null) return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("msg", "原录像已删除或不可用"));
+            ensureReviewSchema();
+            List<Map<String, Object>> items = new ArrayList<>();
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                         "SELECT * FROM recording_review WHERE recording_id = ? ORDER BY created_at DESC, id DESC")) {
+                ps.setLong(1, recordingId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) items.add(reviewRow(rs));
+                }
+            }
+            return ResponseEntity.ok(Map.of("source", source, "reviews", items));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("msg", "读取录像复核记录失败"));
+        }
+    }
+
+    public record ReviewInput(Double start, Double end, Double at, String outcome, String note, UUID requestId) {}
+
+    @PostMapping("/reviews/{recordingId}")
+    public ResponseEntity<?> addReview(@PathVariable Long recordingId, @RequestBody ReviewInput input) {
+        if (input.start() == null || input.end() == null || input.at() == null
+                || !Double.isFinite(input.start()) || !Double.isFinite(input.end()) || !Double.isFinite(input.at())
+                || input.start() < 0 || input.end() <= input.start()
+                || input.at() < input.start() || input.at() > input.end()
+                || input.outcome() == null || !REVIEW_OUTCOMES.contains(input.outcome())
+                || input.requestId() == null || (input.note() != null && input.note().length() > 200)) {
+            return ResponseEntity.badRequest().body(Map.of("msg", "复核区间或意见无效"));
+        }
+        long reviewerId = StpUtil.getLoginIdAsLong();
+        try {
+            Map<String, Object> source = reviewSource(recordingId);
+            if (source == null) return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("msg", "原录像已删除或不可用"));
+            if (source.get("startedAt") instanceof String started && source.get("endedAt") instanceof String ended) {
+                double indexedSeconds = (Instant.parse(ended).toEpochMilli() - Instant.parse(started).toEpochMilli()) / 1000.0;
+                if (input.end() > indexedSeconds + 2) {
+                    return ResponseEntity.badRequest().body(Map.of("msg", "复核终点超出录像索引范围"));
+                }
+            }
+            ensureReviewSchema();
+            String requestId = input.requestId().toString();
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement insert = conn.prepareStatement(
+                         "INSERT INTO recording_review (recording_id, reviewer_id, request_id, start_sec, end_sec, anchor_sec, outcome, note) " +
+                                 "VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id = id");
+                 PreparedStatement read = conn.prepareStatement(
+                         "SELECT * FROM recording_review WHERE recording_id = ? AND reviewer_id = ? AND request_id = ?")) {
+                insert.setLong(1, recordingId);
+                insert.setLong(2, reviewerId);
+                insert.setString(3, requestId);
+                insert.setDouble(4, input.start());
+                insert.setDouble(5, input.end());
+                insert.setDouble(6, input.at());
+                insert.setString(7, input.outcome());
+                insert.setString(8, input.note() == null ? "" : input.note());
+                insert.executeUpdate();
+
+                read.setLong(1, recordingId);
+                read.setLong(2, reviewerId);
+                read.setString(3, requestId);
+                try (ResultSet rs = read.executeQuery()) {
+                    if (rs.next()) return ResponseEntity.ok(reviewRow(rs));
+                }
+            }
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("msg", "保存复核记录失败，请重试"));
+        }
+        return ResponseEntity.internalServerError().body(Map.of("msg", "暂时无法读取已保存的复核记录"));
     }
 
     @DeleteMapping("/{filename:.+}")

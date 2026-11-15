@@ -61,9 +61,10 @@
               </template>
             </el-table-column>
             <el-table-column label="风险" min-width="10%" align="center"><template #default="{ row }"><EventPriority :level="row.level" /></template></el-table-column>
-            <el-table-column prop="createTime" label="报警时间" min-width="15%" align="center" :formatter="formatTime"/>
-            <el-table-column fixed="right" label="操作" min-width="10%" align="center">
+            <el-table-column prop="createTime" label="告警时间" min-width="15%" align="center" :formatter="formatTime"/>
+            <el-table-column fixed="right" label="操作" min-width="145" align="center">
               <template #default="{ row }">
+                <el-button link type="primary" size="small" @click="openRecordingReview(row)">复核录像</el-button>
                 <el-button link type="primary" size="small" @click="handleClick(row.id)" :disabled="reviewSubmitting">处理</el-button>
               </template>
             </el-table-column>
@@ -131,7 +132,7 @@
 <script setup>
 import EventPriority from '@/components/EventPriority.vue'
 import {reactive, onMounted, ref, computed, watch} from 'vue'
-import {useRoute} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 import RailReviewSteps from '@/components/RailReviewSteps.vue'
 import RailSignal from '@/components/RailSignal.vue'
 import { cameraNameForEvent } from '@/utils/railPresentation'
@@ -243,6 +244,7 @@ const getAllAlarmData = async () => {
 }
 
 const route = useRoute();
+const router = useRouter();
 const reviewPanel = ref(null);
 const activeTab = ref('danger');
 const reviewStep = ref(0);
@@ -267,6 +269,14 @@ function reviewRowClass({ row }, kind) {
 
 const handleClick = id => reviewRecord(id, 'danger', updateAlarmInfoById, getAllAlarmData);
 const dealClick = id => reviewRecord(id, 'camera', updateCameraAlarmById, getAllCameraAlarmData);
+
+function openRecordingReview(row) {
+  if (!row.cameraId || !row.createTime) {
+    ElMessage.info('告警缺少摄像头编号或发生时间，无法匹配录像。');
+    return;
+  }
+  router.push({ path: '/originalRecognition', query: { camera: row.cameraId, at: row.createTime, event: row.id } });
+}
 
 async function reviewRecord(id, kind, update, refresh) {
   if (reviewSubmitting.value) return;

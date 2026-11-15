@@ -6,6 +6,7 @@ training or synthetic alarms. Importing this module does not load a model/camera
 from __future__ import annotations
 
 import atexit
+import base64
 import hashlib
 import io
 import math
@@ -14,6 +15,7 @@ import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -120,9 +122,11 @@ class Job:
         self.paused = threading.Event()
         self.lock = threading.Lock()
         self.jpeg = None
+        self.original_jpeg = None
         self.data = {'frameIndex': 0, 'mediaSeconds': None, 'totalFrames': None,
                      'sourceFps': None, 'counts': {'person': 0, 'car': 0},
                      'detections': [], 'processingMs': None, 'completedHz': 0,
+                     'frameUpdatedAt': None,
                      'width': None, 'height': None, 'captureReleased': False}
         self.last_seen = time.monotonic()
         self.future = None
@@ -207,13 +211,23 @@ class Manager:
                     raise InputFailure('无效画面或分辨率过大')
                 annotated, detections, ms = self.detector.predict(frame)
                 ok, jpg = cv2.imencode('.jpg', annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                if not ok:
+                raw_ok, raw_jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                if not ok or not raw_ok:
                     raise InputFailure('检测画面编码失败')
                 completed += 1
+                seconds = None
+                if job.mode == 'video':
+                    position = cap.get(cv2.CAP_PROP_POS_MSEC)
+                    if math.isfinite(position) and (position > 0 or completed == 1 and position == 0):
+                        seconds = position / 1000
+                    elif fps:
+                        seconds = (completed - 1) / fps
                 with job.lock:
                     job.jpeg = jpg.tobytes()
+                    job.original_jpeg = raw_jpg.tobytes()
                     job.data.update(frameIndex=completed, width=frame.shape[1], height=frame.shape[0],
-                                    mediaSeconds=(completed - 1) / fps if job.mode == 'video' and fps else None,
+                                    mediaSeconds=seconds,
+                                    frameUpdatedAt=datetime.now(timezone.utc).isoformat(),
                                     counts={label: sum(d['label'] == label for d in detections) for label in ('person', 'car')},
                                     detections=detections, processingMs=round(ms, 2),
                                     completedHz=round(completed / max(time.monotonic() - start - pause_total, 0.001), 2))
@@ -370,6 +384,21 @@ def create_app(manager=None, camera_reader=read_camera):
         if not job or not job.jpeg:
             return Response(status=404)
         return Response(job.jpeg, mimetype='image/jpeg')
+
+    @app.get('/original/jobs/<job_id>/snapshot')
+    def snapshot(job_id):
+        job = get_job(job_id)
+        if not job:
+            return jsonify(success=False, message='任务不存在或服务已重启'), 404
+        since = request.args.get('after', 0, type=int)
+        job.last_seen = time.monotonic()
+        with job.lock:
+            data = {'id': job.id, 'mode': job.mode, 'name': job.name, 'state': job.state,
+                    'error': job.error, **job.data}
+            original = job.original_jpeg if job.data['frameIndex'] != since else None
+        if original is not None:
+            data['originalJpeg'] = base64.b64encode(original).decode('ascii')
+        return jsonify(success=True, data=data)
 
     @app.post('/original/jobs/<job_id>/<action>')
     def control(job_id, action):

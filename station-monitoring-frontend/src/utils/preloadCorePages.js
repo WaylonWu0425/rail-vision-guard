@@ -7,7 +7,7 @@ export function preloadCorePages() {
 
   const preload = () => {
     void import(/* webpackPrefetch: true */ '@/views/MonitoringScreen.vue')
-    void import(/* webpackPrefetch: true */ '@/views/ImageDetection.vue')
+    void import(/* webpackPrefetch: true */ '@/views/OriginalRecognition.vue')
     void import(/* webpackPrefetch: true */ '@/views/Alarm.vue')
     void import(/* webpackPrefetch: true */ '@/views/video.vue')
     void import(/* webpackPrefetch: true */ '@/views/CameraManagement.vue')

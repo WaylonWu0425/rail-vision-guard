@@ -24,6 +24,17 @@ export const getRecordingMatch = (cameraId, at) => http.get("/recording/match", 
     params: { cameraId, at }
 });
 
+export const getRecordingReviews = (recordingId, signal) =>
+    http.get(`/recording/reviews/${encodeURIComponent(recordingId)}`, { signal });
+
+export const saveRecordingReview = (recordingId, review) =>
+    http.post(`/recording/reviews/${encodeURIComponent(recordingId)}`, review, {
+        headers: { 'Content-Type': 'application/json' }
+    });
+
+export const getRecordingFile = (filename, signal) =>
+    http.get(`/recording/stream/${encodeURIComponent(filename)}`, { responseType: 'blob', signal, timeout: 300000 });
+
 // 删除录像文件
 export const deleteRecording = (filename) => http({
     url: `/recording/${encodeURIComponent(filename)}`,

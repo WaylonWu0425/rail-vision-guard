@@ -40,8 +40,7 @@ const routes = [
             },
             {
                 path: '/imageDetection',
-                name: 'ImageDetection',
-                component: () => import('@/views/ImageDetection.vue')
+                redirect: '/originalRecognition'
             },
             {
                 path: '/originalRecognition',
