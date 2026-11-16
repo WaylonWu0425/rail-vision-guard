@@ -261,7 +261,7 @@ const navigationItems = computed(() => [
   { path: '/', label: '综合态势', icon: 'overview' },
   { path: '/monitoringscreen', label: '实时预览', icon: 'preview' },
   { path: '/originalRecognition', label: '人车识别', icon: 'recognition' },
-  { path: '/couplingSensing', label: '作业感知', icon: 'recognition' },
+  { path: '/couplingSensing', label: '连挂复核', icon: 'recognition' },
   {
     path: '/alarm', label: '告警中心', icon: 'alert', menuLabel: '告警中心子菜单',
     children: [{ path: '/alarmrecord', label: '告警历史' }],

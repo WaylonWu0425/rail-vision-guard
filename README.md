@@ -27,6 +27,8 @@
 
 ## 能力与验证
 
+「连挂复核」支持车钩录像抽帧识别、机位标定与测距验证、录音和三轴加速度对齐、本地证据归档。启动前端前设置 `VUE_APP_FIELD_TRIAL_ENABLED=true` 可显示现场试用检查表。已完成的软件验证、实测条件与待采材料见[作业感知升级设计与实施报告](docs/作业感知升级设计与实施报告.md)。
+
 「人车识别」支持从录像时间轴定位画面、切换同帧原图与标注、记录人工复核片段。「告警中心」按摄像头和发生时间关联录像。系统录像的复核意见可供已登录的操作人员交接查看，本地导入录像的标记随当前页面会话保留。
 
 在 `scan/Detection/` 运行 `python original_recognition.py` 启动人车识别服务（5002）。如需 AVI 等格式转码预览，运行 `python -m pip install ncnn imageio-ffmpeg` 安装配套依赖，再运行 `python coupler_service.py`（5003）。可用 `RAIL_FFMPEG_PATH` 指定 FFmpeg，或用 `RAIL_COUPLER_MODEL_DIR` 指定 NCNN 模型目录。录像管理后端导入非 MP4/WebM 文件时，从 `RAIL_FFMPEG_PATH` 或系统 `PATH` 调用 FFmpeg。

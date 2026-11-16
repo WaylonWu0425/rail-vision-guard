@@ -1,0 +1,27 @@
+{
+  "format": "rail-coupler-ranging-v1",
+  "calibration": {
+    "id": "",
+    "cameraId": "",
+    "lens": "",
+    "installation": "",
+    "source": "",
+    "projection": "opencv_pinhole",
+    "imageSize": [null, null],
+    "fx": null,
+    "fy": null,
+    "cx": null,
+    "cy": null,
+    "distortion": [],
+    "targetId": "",
+    "targetReference": "",
+    "targetWidthM": null,
+    "targetHeightM": null
+  },
+  "criteria": {
+    "maxReprojectionPx": null,
+    "maxMeanAbsoluteErrorM": null,
+    "maxAbsoluteErrorM": null
+  },
+  "samples": []
+}
