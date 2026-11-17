@@ -1,17 +1,30 @@
 <template>
   <main class="media-workspace coupling-workspace" aria-label="连挂作业复核">
     <header class="media-heading">
-      <div><h1>连挂作业复核</h1><p>检查录像中的货车与车钩，回看画面并保存复核记录。</p></div>
+      <div><h1>连挂作业记录</h1><p>按作业素材回看车钩画面、定位关键时刻并记录人工复核意见。</p></div>
       <button type="button" class="media-action" @click="openSavedReviews">已保存记录</button>
     </header>
 
+    <section class="coupling-session" aria-label="本次作业素材概况">
+      <div class="session-source">
+        <span class="session-eyebrow">本次素材</span>
+        <strong :title="file?.name || ''">{{ file?.name || '尚未选择录像或图片' }}</strong>
+        <small>{{ file ? (isVideo ? '本地录像' : '本地图片') : '打开素材后可开始回看与复核' }} · {{ file ? '未关联现场作业与设备' : '无作业关联' }}</small>
+      </div>
+      <div class="session-readout"><span>已检查画面</span><strong>{{ records.length }}</strong><small>{{ records.length ? '本次检测记录' : '尚无检测记录' }}</small></div>
+      <div class="session-readout"><span>人工复核</span><strong>{{ reviewedCount }}</strong><small>{{ reviewedCount ? '已判断的检测帧' : '尚无帧判断' }}</small></div>
+      <div class="session-mobile"><span>现场手机测距</span><strong>未关联记录</strong><small>本页暂未接收 APK 的测量结果</small></div>
+    </section>
+
     <section class="media-bar" aria-label="作业录像操作">
+      <span class="coupling-step">01 打开素材</span>
       <input id="coupling-file" ref="sourceInput" class="source-input" type="file" tabindex="-1"
         accept=".mp4,.avi,.mov,.mkv,.webm,.ogg,image/jpeg,image/png,image/webp" @change="selectFile" />
       <button type="button" class="media-action" :class="{ 'media-action--primary': !file }" @click="sourceInput?.click()">
         {{ file ? '更换素材' : '打开作业录像或图片' }}
       </button>
       <button v-if="file" type="button" class="media-action" @click="clearFile">清除</button>
+      <span v-if="file" class="coupling-step">02 查找画面</span>
       <button v-if="file" type="button" class="media-action" :class="{ 'media-action--primary': !hasPrediction && !scanning && !reviewInProgress }"
         :disabled="!canInfer" @click="predictCurrentFrame">{{ predicting ? '识别中…' : '识别当前画面' }}</button>
       <label v-if="isVideo" class="coupling-scan-option">抽帧间隔
@@ -31,7 +44,7 @@
       <div class="media-main">
         <section class="media-panel media-viewer" aria-label="作业画面">
           <header class="media-panel-head">
-            <h2 class="media-source-title" :title="file?.name">{{ file?.name || '作业画面' }}</h2>
+            <h2 class="media-source-title" :title="file?.name">作业画面 · {{ file?.name || '未选择素材' }}</h2>
             <span class="media-status">{{ file ? (isVideo ? '历史录像' : '现场图片') : '未打开素材' }}</span>
           </header>
           <div class="media-surface" :class="{ 'is-empty': !file }">
@@ -63,7 +76,7 @@
 
         <section v-if="records.length" class="media-panel coupling-records" aria-label="本次检测记录">
           <header class="media-panel-head">
-            <div><h2>本次检测记录</h2><p class="media-help">点击记录回看。扫描仅检查抽取的画面。</p></div>
+            <div><h2>关键画面与检测记录</h2><p class="media-help">点击记录定位原录像。扫描仅检查抽取的画面，未扫描的时刻不代表没有目标。</p></div>
             <div class="media-actions"><span class="media-status">{{ records.length }} 条</span><button type="button" class="media-action" @click="exportRecords">导出记录</button></div>
           </header>
           <div class="record-list" tabindex="0" role="region" aria-label="检测记录列表">
@@ -81,6 +94,7 @@
       </div>
 
       <aside class="media-side" aria-label="帧证据与复核">
+        <div class="coupling-side-heading"><span class="coupling-step">03 核对证据</span><span>人工确认作业情况</span></div>
         <section v-if="file" class="media-panel current-evidence" aria-label="当前帧证据">
           <header class="media-panel-head"><h2>当前帧证据</h2><span class="media-status" role="status">{{ evidenceStatus }}</span></header>
           <div class="current-evidence-content">
@@ -103,7 +117,7 @@
             hide-seek @seek="seekVideoTime" />
         </details>
         <details v-if="file" class="media-panel media-disclosure">
-          <summary>车钩距离估算</summary>
+          <summary>网页参考面距离估算（需标定）</summary>
           <CouplerRanging ref="ranging" :api="API" :ready="rangingReady" :source="file"
             :can-load="canCaptureReview" :load-frame="loadRangingFrame" embedded />
         </details>
@@ -169,6 +183,7 @@ const isVideo = computed(() => !!file.value && (file.value.type.startsWith('vide
 const fmt = value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(Math.floor(value % 60)).padStart(2, '0')}`;
 const timeText = computed(() => isVideo.value && duration.value ? `${fmt(seconds.value)} / ${fmt(duration.value)}` : '无时间数据');
 const activeRecord = computed(() => records.value.find(item => item.id === selectedRecordId.value) || null);
+const reviewedCount = computed(() => records.value.filter(item => item.review !== 'pending').length);
 const canInfer = computed(() => Boolean(file.value && url.value) && serviceReady.value && !predicting.value
   && !scanning.value && !converting.value && !seeking.value && (!isVideo.value || Boolean(duration.value)));
 const canCaptureReview = computed(() => Boolean(file.value && url.value) && !converting.value
@@ -447,6 +462,15 @@ onBeforeUnmount(clearFile);
 </script>
 
 <style scoped>
+.coupling-session { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(125px, 1fr)); gap: 1px; margin: 0 0 12px; border: 1px solid var(--media-line); background: var(--media-line); border-radius: 5px; overflow: hidden; }
+.coupling-session > div { display: grid; align-content: center; gap: 3px; min-width: 0; min-height: 73px; padding: 10px 14px; background: var(--media-panel); }
+.coupling-session span, .coupling-session small { color: var(--media-muted); font-size: 12px; line-height: 1.4; }
+.coupling-session strong { font-size: 15px; line-height: 1.3; font-weight: 650; }
+.session-source strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-readout strong { font-variant-numeric: tabular-nums; font-size: 19px; }
+.session-mobile strong { font-size: 13px; color: var(--media-muted); }
+.coupling-step { flex: none; color: var(--media-accent); font-size: 12px; font-weight: 650; letter-spacing: .02em; }
+.coupling-side-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 2px 0; color: var(--media-muted); font-size: 12px; }
 .source-input { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
 .coupling-error { flex-basis: 100%; }
 .coupling-scan-option { display: inline-flex; align-items: center; gap: 7px; color: var(--media-muted); font-size: 13px; }
@@ -477,6 +501,8 @@ onBeforeUnmount(clearFile);
 .capture a { color: var(--media-accent); }
 .trial-details p { margin: 5px 0; }
 @media (max-width: 560px) {
+  .coupling-session { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .session-source { grid-column: 1 / -1; }
   .record-row { flex-wrap: wrap; }
   .record-open { flex-basis: 100%; }
 }

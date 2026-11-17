@@ -34,3 +34,5 @@
 *.mkv
 *.db
 *.sqlite*
+# Local checkpoint for the person/vehicle recognition page
+/scan/Detection/models/yolov8l.pt

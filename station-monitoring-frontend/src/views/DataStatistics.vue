@@ -2,7 +2,7 @@
   <div class="data-statistics">
     <header class="ops-page-header"><div><span class="ops-eyebrow">OPERATIONS ANALYTICS / 数据分析</span><h1>数据统计</h1><p>按设备、告警和任务查看统计结果与报表。</p></div></header>
     <el-tabs v-model="activeTab" type="border-card" class="stats-tabs" @tab-change="handleTabChange">
-      <el-tab-pane label="设备运行统计" name="device">
+      <el-tab-pane label="设备与告警" name="device">
         <div class="filter-section">
           <div class="date-filter">
             <span class="filter-label">日期范围：</span>
@@ -20,31 +20,31 @@
           <el-button type="primary" @click="fetchDeviceStats" round>查询</el-button>
           <el-button @click="resetDeviceFilters" round>重置</el-button>
         </div>
+        <p>日期范围用于统计摄像头告警。登记时长从设备登记日起算，状态为当前记录。</p>
 
         <!-- 图表区域 -->
         <div class="chart-container">
           <div class="chart-wrapper">
-            <h3>设备运行时间统计</h3>
+            <h3>设备登记时长</h3>
             <div id="deviceRunningChart" class="chart"></div>
           </div>
           <div class="chart-wrapper">
-            <h3>设备故障率统计</h3>
+            <h3>各摄像头告警次数</h3>
             <div id="deviceFailureChart" class="chart"></div>
           </div>
         </div>
 
         <!-- 数据表格 -->
         <div class="table-container">
-          <h3>设备运行详情</h3>
+          <h3>设备与告警明细</h3>
           <el-table :data="deviceRunningData" style="width: 100%" border>
             <el-table-column prop="deviceName" label="设备名称" min-width="15%" align="center"/>
-            <el-table-column prop="runningTime" label="运行时间(小时)" min-width="15%" align="center"/>
-            <el-table-column prop="failureCount" label="故障次数" min-width="15%" align="center"/>
-            <el-table-column prop="failureRate" label="故障率" min-width="15%" align="center"/>
+            <el-table-column prop="runningTime" label="登记时长（小时）" min-width="15%" align="center"/>
+            <el-table-column prop="failureCount" label="所选时段告警次数" min-width="15%" align="center"/>
             <el-table-column prop="status" label="当前状态" min-width="15%" align="center">
               <template #default="{ row }">
-                <el-tag :type="row.status === '正常' ? 'success' : 'danger'">
-                  {{ row.status }}
+                <el-tag :type="deviceStatusText(row.status) === '在线' ? 'success' : 'info'">
+                  {{ deviceStatusText(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -52,7 +52,7 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="报警信息统计" name="alarm">
+      <el-tab-pane label="告警统计" name="alarm">
         <div class="filter-section">
           <div class="date-filter">
             <span class="filter-label">日期范围：</span>
@@ -196,6 +196,7 @@ import {Document, List} from '@element-plus/icons-vue'
 import {ElMessage} from 'element-plus'
 import * as echarts from 'echarts'
 import '@/utils/railChartTheme'
+import { cameraRailState, railStatusLabels } from '@/utils/railPresentation'
 import {
   getDeviceRunningStats,
   getAlarmStats,
@@ -238,6 +239,7 @@ const dateShortcuts = [
 // ==================== 设备运行统计 ====================
 const dateRange = ref([])
 const deviceRunningData = ref([])
+const deviceStatusText = status => railStatusLabels[cameraRailState(status)]
 let deviceRunningChart = null
 let deviceFailureChart = null
 let statisticsMounted = false
@@ -328,7 +330,7 @@ const renderDeviceRunningChart = (data) => {
     },
     yAxis: {
       type: 'value',
-      name: '运行时间(小时)',
+      name: '登记时长（小时）',
       splitLine: {
         lineStyle: {
           type: 'dashed'
@@ -337,7 +339,7 @@ const renderDeviceRunningChart = (data) => {
     },
     series: [
       {
-        name: '运行时间',
+        name: '登记时长',
         type: 'bar',
         barWidth: '60%',
         data: runningTimes,
@@ -364,64 +366,19 @@ const renderDeviceRunningChart = (data) => {
   deviceRunningChart.setOption(option)
 }
 
-// 渲染设备故障率图表
+// Render alarm counts for the selected interval.
 const renderDeviceFailureChart = (data) => {
   const container = document.getElementById('deviceFailureChart')
   if (!container) return
   deviceFailureChart = echarts.getInstanceByDom(container) || echarts.init(container, 'rail-workspace')
 
   const deviceNames = data.map(item => item.deviceName)
-  const failureRates = data.map(item => parseFloat(item.failureRate))
-
   const option = {
-    tooltip: {
-      trigger: 'item',
-      formatter: '{b}: {c}%'
-    },
-    legend: {
-      orient: 'horizontal',
-      bottom: 'bottom',
-      textStyle: {
-        color: '#acbbc2'
-      }
-    },
-    series: [
-      {
-        name: '故障率',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: {
-          borderRadius: 10,
-          borderColor: '#fff',
-          borderWidth: 2
-        },
-        label: {
-          show: false,
-          position: 'center'
-        },
-        emphasis: {
-          label: {
-            show: true,
-            fontSize: 16,
-            fontWeight: 'bold'
-          }
-        },
-        labelLine: {
-          show: false
-        },
-        data: deviceNames.map((name, index) => ({
-          name: name,
-          value: failureRates[index],
-          itemStyle: {
-            color: [
-              '#75a6b1', '#91cc75', '#fac858', '#ee6666',
-              '#73c0de', '#3ba272', '#fc8452', '#9a60b4'
-            ][index % 8]
-          }
-        }))
-      }
-    ]
+    tooltip: { trigger: 'axis' },
+    grid: { left: 12, right: 16, top: 24, bottom: 12, containLabel: true },
+    xAxis: { type: 'category', data: deviceNames, axisLabel: { rotate: 30 } },
+    yAxis: { type: 'value', name: '次数', minInterval: 1 },
+    series: [{ name: '告警次数', type: 'bar', data: data.map(item => item.failureCount), itemStyle: { color: '#75a6b1' } }],
   }
 
   deviceFailureChart.setOption(option)
@@ -886,8 +843,8 @@ const exportDateRange = ref([])
 const reportType = ref('')
 const exportLoading = ref(false)
 const reportOptions = [
-  {value: '1', label: '设备运行报表'},
-  {value: '2', label: '报警信息报表'},
+  {value: '1', label: '设备与告警报表'},
+  {value: '2', label: '告警统计报表'},
   {value: '3', label: '任务完成报表'},
   {value: '4', label: '综合统计报表'},
 ]

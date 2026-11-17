@@ -63,7 +63,7 @@
                             </template>
                         </el-table-column>
                         <el-table-column label="风险" min-width="10%" align="center"><template #default="{ row }"><EventPriority :level="row.level" /></template></el-table-column>
-                        <el-table-column prop="createTime" label="报警时间" min-width="15%" align="center" :formatter="formatTime"/>
+                        <el-table-column prop="createTime" label="告警时间" min-width="15%" align="center" :formatter="formatTime"/>
                         <el-table-column prop="dealTime" label="处理时间" min-width="15%" align="center" :formatter="formatTime"/>
                         <el-table-column prop="dealFlag" label="状态" min-width="10%" align="center">
                             <template #default="{ row }">

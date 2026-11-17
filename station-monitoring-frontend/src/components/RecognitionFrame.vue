@@ -1,9 +1,14 @@
 <template>
-  <svg class="recognition-frame" :viewBox="viewBox.values" preserveAspectRatio="xMidYMid meet"
-    role="img" :aria-label="annotated ? '同帧模型检测标注' : '同帧原始画面'">
+  <svg class="recognition-frame" :class="{ 'region-editing': editRegion }" :viewBox="viewBox.values" preserveAspectRatio="xMidYMid meet"
+    role="img" :aria-label="annotated ? '同帧模型检测标注' : '同帧原始画面'" @click="addRegionPoint">
     <defs><clipPath :id="clipId"><rect :x="viewBox.x" :y="viewBox.y" :width="viewBox.w" :height="viewBox.h" /></clipPath></defs>
     <g :clip-path="`url(#${clipId})`">
       <image :href="frame.image" :width="frame.width" :height="frame.height" />
+      <polygon v-if="region.length >= 3 && !editRegion" :points="regionPixels" class="review-region" />
+      <template v-if="editRegion">
+        <polyline :points="regionPixels" class="review-region draft-path" />
+        <circle v-for="(p, index) in region" :key="index" :cx="p.x * frame.width" :cy="p.y * frame.height" :r="labelSize / 4" class="region-node" />
+      </template>
       <g v-if="annotated">
         <g v-for="box in boxes" :key="box.index" :class="{ selected: box.index === selected }">
           <rect class="target-box" :class="box.label" :x="box.x" :y="box.y"
@@ -11,7 +16,7 @@
           <text v-if="selected == null || box.index === selected"
             :x="Math.min(box.x + 3, viewBox.x + viewBox.w - labelSize * 4)"
             :y="box.y >= viewBox.y + labelSize + 4 ? box.y - 4 : box.y + labelSize + 4" :font-size="labelSize">
-            {{ box.label === 'person' ? '人员' : '汽车' }} {{ box.index + 1 }}
+            {{ detectionLabel(box.label) }} {{ box.index + 1 }}
           </text>
         </g>
       </g>
@@ -21,14 +26,28 @@
 
 <script setup>
 import { computed, useId } from 'vue';
+import { detectionLabel } from '@/utils/detectionLabels';
 
 const props = defineProps({
   frame: { type: Object, required: true },
   annotated: Boolean,
   selected: { type: Number, default: null },
   zoom: { type: Number, default: 1 },
+  region: { type: Array, default: () => [] },
+  editRegion: Boolean,
 });
+const emit = defineEmits(['region-point']);
 const clipId = useId();
+const regionPixels = computed(() => props.region.map(p => [p.x * props.frame.width, p.y * props.frame.height].join(',')).join(' '));
+
+function addRegionPoint(event) {
+  if (!props.editRegion) return;
+  const matrix = event.currentTarget.getScreenCTM();
+  if (!matrix) return;
+  const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+  const x = point.x / props.frame.width, y = point.y / props.frame.height;
+  if (x >= 0 && x <= 1 && y >= 0 && y <= 1) emit('region-point', { x, y });
+}
 
 const boxes = computed(() => props.frame.detections.map((target, index) => {
   const [x, y, right, bottom] = target.box;
@@ -50,6 +69,10 @@ const viewBox = computed(() => {
 
 <style scoped>
 .recognition-frame { position: absolute; inset: 0; width: 100%; height: 100%; }
+.region-editing { cursor: crosshair; }
+.review-region { fill: #e3ad5826; stroke: #e3ad58; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.draft-path { fill: none; stroke-dasharray: 4 3; }
+.region-node { fill: #ffdf9f; stroke: #102a42; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .target-box { fill: none; stroke: #76dcff; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .target-box.car { stroke: #f5cc8a; }
 .selected .target-box { stroke: #fff; stroke-width: 3; }

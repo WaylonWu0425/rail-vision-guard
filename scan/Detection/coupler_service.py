@@ -167,7 +167,7 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError('视频上传不完整')
                     target.write(chunk)
                     remaining -= len(chunk)
-            supplied_ffmpeg = Path(os.environ.get('RAIL_FFMPEG_PATH') or '')
+            supplied_ffmpeg = Path(os.environ.get('RAIL_FFMPEG_PATH', 'D:/AAA空信242/视频转码助手/core/ffmpeg.exe'))
             ffmpeg = str(supplied_ffmpeg) if supplied_ffmpeg.is_file() else imageio_ffmpeg.get_ffmpeg_exe()
             command = [ffmpeg, '-nostdin', '-hide_banner', '-loglevel', 'error',
                        '-i', str(source), '-map', '0:v:0', '-map', '0:a:0?',

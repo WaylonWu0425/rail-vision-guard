@@ -33,7 +33,9 @@
 
 在 `scan/Detection/` 运行 `python original_recognition.py` 启动人车识别服务（5002）。如需 AVI 等格式转码预览，运行 `python -m pip install ncnn imageio-ffmpeg` 安装配套依赖，再运行 `python coupler_service.py`（5003）。可用 `RAIL_FFMPEG_PATH` 指定 FFmpeg，或用 `RAIL_COUPLER_MODEL_DIR` 指定 NCNN 模型目录。录像管理后端导入非 MP4/WebM 文件时，从 `RAIL_FFMPEG_PATH` 或系统 `PATH` 调用 FFmpeg。
 
-现有模型 `best.pt` 用于人员、车辆检测。系统将检测结果与摄像头、时间、区域规则和截图证据关联，并支持人工核查。与检测效果有关的验证记录见 `docs/`；模型能力、受控演示和现场验证分别说明，不将单一演示结果概括为通用准确率。
+「人车识别」页使用 `yolov8l.pt`，仅输出人员和汽车。启动人车识别服务前，将老师提供的权重放在 `scan/Detection/models/yolov8l.pt`。加载时校验文件 SHA-256 和类别映射。
+
+后台自动告警使用 `best.pt`，将检测结果与摄像头、时间、区域规则和截图证据关联，支持人工核查。与检测效果有关的验证记录见 `docs/`。
 
 `scan/Detection/models/best12_20.param` 与 `.bin` 是老师提供并获许可使用的 NCNN 模型文件，用于作业感知原型的本地推理；它与 `best.pt` 承担的任务不同。模型接入说明见 `scan/Detection/车钩识别接入说明.md`。移动端 APK 是独立交付物，不属于本仓库网页端源码。
 

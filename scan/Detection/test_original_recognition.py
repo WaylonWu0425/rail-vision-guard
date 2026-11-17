@@ -1,23 +1,28 @@
 """No database/camera/model imports in unit tests; real inference is separate."""
 import base64
+import hashlib
 import io
+import os
 import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import cv2
 import numpy as np
 
-from original_recognition import Manager, create_app, decode_image, rtsp_source
+from original_recognition import Detector, InputFailure, Manager, create_app, decode_image, rtsp_source
 
 
 class FakeDetector:
     def __init__(self):
         self.calls = 0
+        self.profiles = []
 
-    def predict(self, frame):
+    def predict(self, frame, profile):
         self.calls += 1
+        self.profiles.append(profile)
         return frame.copy(), [{'label': 'person', 'confidence': .8, 'box': [1, 2, 8, 9]}], 1.5
 
 
@@ -57,9 +62,12 @@ class RecognitionTests(unittest.TestCase):
     def tearDown(self):
         self.manager.close()
 
-    def image_request(self):
+    def image_request(self, profile=None):
         _, image = cv2.imencode('.png', np.zeros((16, 16, 3), dtype=np.uint8))
-        return self.client.post('/original/jobs', data={'mode': 'image', 'file': (io.BytesIO(image.tobytes()), '样本.png')}, headers=self.headers)
+        data = {'mode': 'image', 'file': (io.BytesIO(image.tobytes()), '样本.png')}
+        if profile is not None:
+            data['profile'] = profile
+        return self.client.post('/original/jobs', data=data, headers=self.headers)
 
     def wait(self):
         self.manager.job.future.result(timeout=5)
@@ -76,6 +84,65 @@ class RecognitionTests(unittest.TestCase):
         frame = self.client.get(f"/original/jobs/{state['id']}/frame")
         self.assertEqual(frame.mimetype, 'image/jpeg')
         self.assertEqual(self.detector.calls, 1)
+        self.assertEqual(self.detector.profiles, ['full640'])
+
+    def test_offline_profile_is_reported_with_its_frame(self):
+        response = self.image_request('full1280')
+        self.assertEqual(response.status_code, 202)
+        state = self.wait()
+        result = self.client.get(f"/original/jobs/{state['id']}/snapshot").json['data']
+        self.assertEqual(result['inference']['inputSize'], 1280)
+        self.assertEqual(result['inference']['modelSha256'], self.client.get('/original/config').json['modelSha256'])
+        self.assertEqual(self.detector.profiles, ['full1280'])
+
+    def test_unknown_profile_and_live_detail_mode_are_rejected(self):
+        self.assertEqual(self.image_request('unknown').status_code, 400)
+        response = self.client.post('/original/jobs', json={'mode': 'usb', 'profile': 'full1280'}, headers=self.headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertIsNone(self.manager.job)
+
+    def test_missing_railai_weights_do_not_fall_back_to_current_model(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {'RAILAI_DETECTION_MODEL_PATH': str(Path(directory) / 'missing.pt')}):
+                manager = Manager(self.detector)
+            try:
+                client = create_app(manager).test_client()
+                config = client.get('/original/config').json
+                self.assertFalse(config['railai']['configured'])
+                _, image = cv2.imencode('.png', np.zeros((16, 16, 3), dtype=np.uint8))
+                response = client.post('/original/jobs', data={
+                    'mode': 'image', 'modelId': 'railai', 'file': (io.BytesIO(image.tobytes()), 'sample.png'),
+                }, headers={'X-Original-Token': config['token']})
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(self.detector.calls, 0)
+            finally:
+                manager.close()
+
+    def test_railai_checkpoint_identity_and_output_are_separate_from_current_model(self):
+        with tempfile.TemporaryDirectory() as directory:
+            weights = Path(directory) / 'five-classes.pt'
+            weights.write_bytes(b'test fixture, never loaded as a checkpoint')
+            sha256 = hashlib.sha256(weights.read_bytes()).hexdigest()
+            with patch.dict(os.environ, {'RAILAI_DETECTION_MODEL_PATH': str(weights), 'RAILAI_DETECTION_SHA256': sha256}):
+                railai = FakeDetector()
+                manager = Manager(self.detector, railai_detector=railai)
+            try:
+                with self.assertRaises(InputFailure):
+                    manager.start('usb', 0, 'camera', model_id='railai')
+                job = manager.start('image', np.zeros((16, 16, 3), dtype=np.uint8), 'frame', model_id='railai')
+                job.future.result(timeout=5)
+                state = job.snapshot()
+                self.assertEqual(state['state'], 'finished')
+                self.assertEqual(state['inference']['modelSha256'], sha256)
+                self.assertEqual(state['inference']['iou'], .45)
+                self.assertEqual(state['counts'], {'obstacle': 0, 'person': 1, 'rail': 0, 'signal-and-sign': 0, 'vehicle': 0})
+                self.assertEqual(self.detector.calls, 0)
+                self.assertEqual(railai.calls, 1)
+                weights.write_bytes(b'changed after configuration')
+                with self.assertRaisesRegex(InputFailure, 'SHA-256'):
+                    Detector(manager.models['railai']).predict(np.zeros((16, 16, 3), dtype=np.uint8))
+            finally:
+                manager.close()
 
     def test_snapshot_image_and_detection_share_same_frame(self):
         self.image_request()

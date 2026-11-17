@@ -1,4 +1,4 @@
-"""Original best.pt detection inputs, isolated from alarms and business writes.
+"""Person and vehicle detection inputs, isolated from alarms and business writes.
 
 Only source adaptation is new: no tracking, regions, baseline differences, model
 training or synthetic alarms. Importing this module does not load a model/camera.
@@ -10,11 +10,13 @@ import base64
 import hashlib
 import io
 import math
+import os
 import secrets
 import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -26,8 +28,18 @@ from PIL import Image
 from werkzeug.exceptions import RequestEntityTooLarge
 
 ROOT = Path(__file__).resolve().parent
-MODEL = ROOT / 'models' / 'best.pt'
-EXPECTED_SHA256 = '69747c4762e13194385e7c3111b728bae42fcadfbefc21a29f4b3a8e2640a33e'
+MODEL = ROOT / 'models' / 'yolov8l.pt'
+EXPECTED_SHA256 = '18218ea4798da042d9862e6029ca9531adbd40ace19b6c9a75e2e28f1adf30cc'
+CLASS_NAMES = {0: 'person', 2: 'car'}
+COCO_CLASS_COUNT = 80
+RAILAI_CLASSES = {0: 'obstacle', 1: 'person', 2: 'rail', 3: 'signal-and-sign', 4: 'vehicle'}
+CURRENT_MODEL = 'current'
+RAILAI_MODEL = 'railai'
+DEFAULT_PROFILE = 'full640'
+PROFILES = {'full640': 640, 'full1280': 1280}
+CONFIDENCE = 0.25
+NMS_IOU = 0.7
+DEVICE = 'cpu'
 ACTIVE = {'loading', 'running', 'paused', 'stopping'}
 MAX_PIXELS = 16_000_000
 ORIGINS = {'http://localhost:8080', 'http://127.0.0.1:8080',
@@ -38,26 +50,73 @@ class InputFailure(ValueError):
     """An actionable error known not to contain connection credentials."""
 
 
-class Detector:
-    """Same two-class weights; explicit defaults from the original direct scripts."""
-    def __init__(self):
-        self.model = None
-        self.sha256 = None
+@dataclass(frozen=True)
+class DetectionModel:
+    key: str
+    path: Path
+    sha256: str
+    classes: dict[int, str]
+    iou: float
+    checkpoint_class_count: int | None = None
 
-    def predict(self, frame):
+    def metadata(self, profile):
+        return {'modelId': self.key, 'model': self.path.name, 'modelSha256': self.sha256,
+                'classes': list(self.classes.values()), 'profile': profile,
+                'inputSize': PROFILES[profile], 'confidence': CONFIDENCE, 'iou': self.iou, 'device': DEVICE}
+
+
+def detection_models():
+    railai_path = os.getenv('RAILAI_DETECTION_MODEL_PATH')
+    return {
+        CURRENT_MODEL: DetectionModel(
+            CURRENT_MODEL, MODEL, EXPECTED_SHA256, CLASS_NAMES, NMS_IOU,
+            checkpoint_class_count=COCO_CLASS_COUNT,
+        ),
+        RAILAI_MODEL: DetectionModel(
+            RAILAI_MODEL, Path(railai_path) if railai_path else ROOT / 'models' / 'yolov11_best.pt',
+            os.getenv('RAILAI_DETECTION_SHA256', '').strip().lower(), RAILAI_CLASSES, 0.45,
+        ),
+    }
+
+
+def railai_unavailable(model):
+    if model.path.suffix.lower() != '.pt' or not model.path.is_file():
+        return '尚未配置 RailAI-Vision 铁路检测权重（.pt）'
+    if len(model.sha256) != 64 or any(ch not in '0123456789abcdef' for ch in model.sha256):
+        return '尚未配置铁路检测权重的 SHA-256'
+    return None
+
+
+class Detector:
+    """Load a configured checkpoint once, after verifying digest and class mapping."""
+    def __init__(self, spec=None):
+        self.spec = spec or detection_models()[CURRENT_MODEL]
+        self.model = None
+
+    def predict(self, frame, profile=DEFAULT_PROFILE):
         if self.model is None:
-            digest = hashlib.sha256(MODEL.read_bytes()).hexdigest()
-            if digest != EXPECTED_SHA256:
-                raise InputFailure('best.pt 与已核验的原版权重不一致，请恢复原版权重后重启')
+            if not self.spec.path.is_file():
+                raise InputFailure(f'缺少检测权重 {self.spec.path.name}')
+            with self.spec.path.open('rb') as stream:
+                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+            if digest != self.spec.sha256:
+                raise InputFailure('权重文件与配置的 SHA-256 不一致，请核对后重试')
             from ultralytics import YOLO
-            self.model = YOLO(str(MODEL))
-            if dict(self.model.names) != {0: 'person', 1: 'car'}:
-                raise InputFailure('原版模型类别不符，应为 person / car')
-            self.sha256 = digest
+            model = YOLO(str(self.spec.path))
+            classes = {index: str(label).strip().lower() for index, label in dict(model.names).items()}
+            if self.spec.checkpoint_class_count is None:
+                classes_match = classes == self.spec.classes
+            else:
+                classes_match = (len(classes) == self.spec.checkpoint_class_count
+                                 and all(classes.get(index) == label for index, label in self.spec.classes.items()))
+            if model.task != 'detect' or not classes_match:
+                raise InputFailure('模型任务或类别顺序与所选检测方案不一致')
+            self.model = model
         begin = time.perf_counter()
-        result = self.model.predict(frame, conf=0.25, iou=0.7, imgsz=640,
-                                    device='cpu', verbose=False)[0]
-        boxes = [{'label': result.names[int(cls)], 'confidence': float(conf),
+        result = self.model.predict(frame, conf=CONFIDENCE, iou=self.spec.iou,
+                                    classes=list(self.spec.classes),
+                                    imgsz=PROFILES[profile], device=DEVICE, verbose=False)[0]
+        boxes = [{'label': self.spec.classes[int(cls)], 'confidence': float(conf),
                   'box': [round(float(v), 2) for v in xyxy]}
                  for xyxy, conf, cls in zip(result.boxes.xyxy.tolist(),
                                            result.boxes.conf.tolist(),
@@ -113,10 +172,12 @@ def rtsp_source(camera):
 
 
 class Job:
-    def __init__(self, mode, source, name, cleanup=None):
+    def __init__(self, mode, source, name, cleanup, profile, spec):
         self.id = secrets.token_hex(12)
         self.mode, self.source, self.name = mode, source, name
         self.cleanup = cleanup
+        self.profile = profile
+        self.spec = spec
         self.state, self.error = 'loading', None
         self.stop = threading.Event()
         self.paused = threading.Event()
@@ -124,9 +185,10 @@ class Job:
         self.jpeg = None
         self.original_jpeg = None
         self.data = {'frameIndex': 0, 'mediaSeconds': None, 'totalFrames': None,
-                     'sourceFps': None, 'counts': {'person': 0, 'car': 0},
+                     'sourceFps': None, 'counts': dict.fromkeys(spec.classes.values(), 0),
                      'detections': [], 'processingMs': None, 'completedHz': 0,
                      'frameUpdatedAt': None,
+                     'inference': spec.metadata(profile),
                      'width': None, 'height': None, 'captureReleased': False}
         self.last_seen = time.monotonic()
         self.future = None
@@ -139,18 +201,37 @@ class Job:
 
 
 class Manager:
-    def __init__(self, detector=None, capture_factory=None):
-        self.detector = detector or Detector()
+    def __init__(self, detector=None, capture_factory=None, railai_detector=None):
+        self.models = detection_models()
+        self.detectors = {
+            CURRENT_MODEL: detector or Detector(self.models[CURRENT_MODEL]),
+            RAILAI_MODEL: railai_detector or Detector(self.models[RAILAI_MODEL]),
+        }
         self.capture_factory = capture_factory
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='original-recognition')
         self.lock = threading.Lock()
         self.job = None
 
-    def start(self, mode, source, name, cleanup=None):
+    def start(self, mode, source, name, cleanup=None, profile=DEFAULT_PROFILE, model_id=CURRENT_MODEL):
+        if not isinstance(profile, str) or profile not in PROFILES:
+            raise InputFailure('识别配置不可用，请选择已支持的输入尺寸')
+        if mode not in {'image', 'video'} and profile != DEFAULT_PROFILE:
+            raise InputFailure('高分辨率复核仅支持图片和录像')
+        if not isinstance(model_id, str) or model_id not in self.models:
+            raise InputFailure('未知检测模型')
+        spec = self.models[model_id]
+        if model_id == RAILAI_MODEL:
+            if mode not in {'image', 'video'}:
+                raise InputFailure('铁路检测模型仅用于导入的图片和录像')
+            if profile != DEFAULT_PROFILE:
+                raise InputFailure('铁路检测模型使用项目配置的 640 输入')
+            reason = railai_unavailable(spec)
+            if reason:
+                raise InputFailure(reason)
         with self.lock:
             if self.job and (self.job.future is None or not self.job.future.done()):
                 raise RuntimeError('已有原版识别任务，请先停止并等待资源释放')
-            job = Job(mode, source, name, cleanup)
+            job = Job(mode, source, name, cleanup, profile, spec)
             self.job = job
             job.future = self.executor.submit(self.work, job)
             return job
@@ -209,7 +290,7 @@ class Manager:
                         break
                 if frame is None or frame.size == 0 or frame.shape[0] * frame.shape[1] > MAX_PIXELS:
                     raise InputFailure('无效画面或分辨率过大')
-                annotated, detections, ms = self.detector.predict(frame)
+                annotated, detections, ms = self.detectors[job.spec.key].predict(frame, job.profile)
                 ok, jpg = cv2.imencode('.jpg', annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 raw_ok, raw_jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 if not ok or not raw_ok:
@@ -228,7 +309,7 @@ class Manager:
                     job.data.update(frameIndex=completed, width=frame.shape[1], height=frame.shape[0],
                                     mediaSeconds=seconds,
                                     frameUpdatedAt=datetime.now(timezone.utc).isoformat(),
-                                    counts={label: sum(d['label'] == label for d in detections) for label in ('person', 'car')},
+                                    counts={label: sum(d['label'] == label for d in detections) for label in job.spec.classes.values()},
                                     detections=detections, processingMs=round(ms, 2),
                                     completedHz=round(completed / max(time.monotonic() - start - pause_total, 0.001), 2))
                 if job.mode == 'image':
@@ -242,7 +323,7 @@ class Manager:
             job.error = str(exc)
         except Exception:
             # Do not send exception/RTSP text containing credentials to browser or logs.
-            job.error = '识别失败：请检查输入是否可解码、设备连接及原版权重；不会生成模拟结果。'
+            job.error = '识别失败：请检查输入格式、设备连接及检测权重。'
         finally:
             if cap is not None:
                 cap.release()
@@ -297,9 +378,15 @@ def create_app(manager=None, camera_reader=read_camera):
 
     @app.get('/original/config')
     def config():
-        return jsonify(success=True, token=token, model='best.pt', classes=['person', 'car'],
-                       modelSha256=EXPECTED_SHA256, confidence=0.25, iou=0.7, inputSize=640,
-                       device='cpu', alarmsEnabled=False, trackingEnabled=False)
+        railai = manager.models[RAILAI_MODEL]
+        railai_reason = railai_unavailable(railai)
+        return jsonify(success=True, token=token, model=MODEL.name, classes=list(CLASS_NAMES.values()),
+                       modelSha256=EXPECTED_SHA256, confidence=CONFIDENCE, iou=NMS_IOU,
+                       inputSize=PROFILES[DEFAULT_PROFILE], device=DEVICE,
+                       profiles=[{'id': profile, 'inputSize': size} for profile, size in PROFILES.items()],
+                       railai={'configured': railai_reason is None, 'reason': railai_reason,
+                               **railai.metadata(DEFAULT_PROFILE)},
+                       defaultProfile=DEFAULT_PROFILE, alarmsEnabled=False, trackingEnabled=False)
 
     @app.get('/original/cameras')
     def cameras():
@@ -314,6 +401,8 @@ def create_app(manager=None, camera_reader=read_camera):
         try:
             payload = request.get_json(silent=True) or request.form
             mode = payload.get('mode')
+            profile = payload.get('profile', DEFAULT_PROFILE)
+            model_id = payload.get('modelId', CURRENT_MODEL)
             if mode in {'image', 'video'}:
                 upload = request.files.get('file')
                 if not upload or not upload.filename:
@@ -352,7 +441,7 @@ def create_app(manager=None, camera_reader=read_camera):
                 source, name = rtsp_source(camera), camera.get('name') or f'摄像头 {camera_id}'
             else:
                 raise ValueError('不支持的输入方式')
-            job = manager.start(mode, source, name, cleanup)
+            job = manager.start(mode, source, name, cleanup, profile=profile, model_id=model_id)
             return jsonify(success=True, data=job.snapshot()), 202
         except ValueError as exc:
             if cleanup:

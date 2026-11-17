@@ -1,19 +1,12 @@
-import sys
 import threading
 import unittest
-from pathlib import Path
 from types import SimpleNamespace
 
 import cv2
 import numpy as np
 
 
-PROJECT_DETECTION_DIR = Path(
-    r"D:\AAA空信242\比赛\项目代码\视界巡警\station-monitoring-master\scan\Detection"
-)
-sys.path.insert(0, str(PROJECT_DETECTION_DIR))
-
-import detection_service as service  # noqa: E402
+import detection_service as service
 
 
 class FakeRepository:
@@ -47,6 +40,7 @@ class DetectionLogicTest(unittest.TestCase):
             cooldown_seconds=30.0,
         )
         worker.region_track_states = {}
+        worker.object_alarm_tracks = {}
         worker._record_detection_event = lambda *args, **kwargs: None
         return worker
 
@@ -71,6 +65,20 @@ class DetectionLogicTest(unittest.TestCase):
         worker._handle_region_intrusion([detection], frame, 103.0)
 
         self.assertEqual(worker.repository.alarms, [])
+
+    def test_camera_with_configured_region_does_not_fall_back_to_full_frame_alarms(self):
+        worker = self.make_worker()
+        frame = np.zeros((200, 320, 3), dtype=np.uint8)
+        car = service.Detection("car", 0.9, (40, 20, 180, 180), track_id=7)
+        person = service.Detection("person", 0.9, (40, 20, 180, 180), track_id=8)
+        full_frame_alarms = []
+        worker.repository.create_alarm = lambda *args: full_frame_alarms.append(args)
+        worker._handle_alarms([car], frame, 100.0)
+        worker.region_rule.enabled = False
+        worker._handle_alarms([person], frame, 104.0)
+        self.assertEqual(worker.repository.alarms, [])
+        self.assertEqual(full_frame_alarms, [])
+        self.assertEqual(worker.region_track_states, {})
 
     def test_person_mask_prevents_foreign_object_false_alarm(self):
         baseline = np.zeros((240, 320, 3), dtype=np.uint8)

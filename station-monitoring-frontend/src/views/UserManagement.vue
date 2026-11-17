@@ -1,43 +1,34 @@
 <template>
   <div class="list">
-    <header class="ops-page-header"><div><span class="ops-eyebrow">USER ADMINISTRATION / 权限管理</span><h1>用户管理</h1><p>查看用户状态并维护系统使用权限。</p></div></header>
+    <header class="ops-page-header"><div><h1>用户管理</h1><p>查看账号状态，禁用、恢复或删除账号。</p></div></header>
     <div class="search">
       <div class="search-box">
-        <el-form-item label="用户账号" :label-width="formLabelWidth">
+        <el-form-item label="用户" :label-width="formLabelWidth">
           <el-select-v2
               v-model="searchKey.id"
               filterable
               :options="userList"
-              placeholder="请输入"
+              clearable
+              placeholder="选择用户"
               style="width: 100%"
           />
         </el-form-item>
 
-        <el-form-item label="股道" :label-width="formLabelWidth">
-          <el-input v-model="searchKey.trackId" style="width: 100%" placeholder="请输入"/>
-        </el-form-item>
         <div class="search-btn">
           <el-button round @click="search">搜索</el-button>
         </div>
       </div>
     </div>
     <div class="camera-list">
-      <el-table :data="userInfo" style="width: 100%; height: 540px;">
+      <el-table :data="userInfo" style="width: 100%; height: 540px;" :empty-text="loadError || '没有符合条件的用户'">
         <el-table-column fixed prop="id" label="序号" min-width="5%">
           <template #default="{ $index }">
             {{ $index + 1 }}
           </template>
         </el-table-column>
         <el-table-column prop="username" label="用户名" align="center" min-width="10%"/>
-        <el-table-column prop="account" label="账户" align="center" min-width="10%"/>
+        <el-table-column prop="account" label="登录账号" align="center" min-width="10%"/>
         <el-table-column prop="email" label="邮箱" align="center" min-width="10%"/>
-        <el-table-column prop="sex" label="性别" align="center" min-width="10%">
-          <template #default="{ row }">
-                        <span v-if="row.sex !== null && row.sex !== undefined">
-                            {{ row.sex == 0 ? '女' : '男' }}
-                        </span>
-          </template>
-        </el-table-column>
         <el-table-column prop="state" label="账号状态" align="center" min-width="10%">
           <template #default="{ row }">
             <el-tag :type="row.state == 0 ? 'success' : 'error'">
@@ -110,6 +101,8 @@ const forbiddenUserById = async () => {
         type: 'success',
         plain: true,
       })
+    } else {
+      ElMessage.error('账号状态未更新，请重试。')
     }
   } catch (error) {
     ElMessage({
@@ -138,30 +131,36 @@ const deleteUserById = async () => {
       })
       deleteVisible.value = false;
       fetchUsers();
+    } else {
+      ElMessage.error('账号未删除，请重试。')
     }
   } catch (error) {
     ElMessage({
-      message: '删除成功',
-      type: 'success',
+      message: '删除失败，请重试。',
+      type: 'error',
       plain: true,
     })
-    console.log('预置点信息删除该失败:', error);
+    console.error('删除账号失败:', error);
   }
 }
 //获取用户信息
 const userList = reactive([])
 const userInfo = reactive([])
+const loadError = ref('')
 const fetchUsers = async () => {
+  loadError.value = ''
   try {
     const response = await getAllUser();
     userInfo.splice(0, userInfo.length, ...response.data.data);
     userList.splice(0, userList.length, ...response.data.data.map(user => ({
-      label: user.username,
+      label: user.account ? `${user.username || user.account} · ${user.account}` : user.username,
       value: user.id,
     })));
     console.log(userList);
 
   } catch (error) {
+    loadError.value = '用户列表加载失败，请重试。'
+    userInfo.splice(0)
     console.error('获取列表失败:', error);
   }
 }
@@ -170,10 +169,14 @@ const searchKey = reactive({
   id: '',
 })
 const search = async () => {
+  if (!searchKey.id) return fetchUsers()
+  loadError.value = ''
   try {
     const response = await searchUser(searchKey.id);
     userInfo.splice(0, userInfo.length, ...response.data.data);
   } catch (error) {
+    loadError.value = '用户查询失败，请重试。'
+    userInfo.splice(0)
     console.error("搜索失败：", error);
   }
 }

@@ -122,7 +122,8 @@ public class RecordingController {
     private String ffmpegExecutable() {
         String configured = System.getenv("RAIL_FFMPEG_PATH");
         if (configured != null && !configured.isBlank()) return configured;
-        return "ffmpeg";
+        Path supplied = Paths.get("D:/AAA空信242/视频转码助手/core/ffmpeg.exe");
+        return Files.isRegularFile(supplied) ? supplied.toString() : "ffmpeg";
     }
 
     private void convertForBrowser(Path input, Path output) throws Exception {

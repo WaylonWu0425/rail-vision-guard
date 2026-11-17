@@ -1148,6 +1148,15 @@ class CameraWorker:
             event_type == "region_intrusion",
         )
         snapshot_file = save_evidence_snapshot(evidence, self.camera_id, event_type)
+        metadata = {
+            "device": self.runtime.device,
+            "inferenceMs": round(self.inference_ms, 2),
+            "videoFps": round(self.video_fps, 2),
+            "inferenceFps": round(self.inference_fps, 2),
+        }
+        if event_type == "region_intrusion" and self.region_rule:
+            metadata["region"] = self.region_rule.as_dict()
+            metadata["regionDecision"] = "box_bottom_center"
         try:
             self.repository.create_detection_event(
                 alarm_id,
@@ -1161,12 +1170,7 @@ class CameraWorker:
                 first_seen_at=first_seen_at,
                 duration_seconds=duration_seconds,
                 model_version=self.runtime.model_version,
-                metadata={
-                    "device": self.runtime.device,
-                    "inferenceMs": round(self.inference_ms, 2),
-                    "videoFps": round(self.video_fps, 2),
-                    "inferenceFps": round(self.inference_fps, 2),
-                },
+                metadata=metadata,
             )
         except Exception as exc:
             LOGGER.exception("Failed to store detection event metadata: %s", exc)
@@ -1364,10 +1368,12 @@ class CameraWorker:
         self, detections: list[Detection], frame: np.ndarray, now: float
     ) -> None:
         self._handle_region_intrusion(detections, frame, now)
+        if self.region_rule is not None:
+            # A configured region governs this camera, including when it is suspended.
+            self.object_alarm_tracks.clear()
+            return
         for detection in detections:
             label = detection.label
-            if self.region_rule and self.region_rule.enabled and label in self.region_rule.target_classes:
-                continue
             if label not in ALARM_CLASSES:
                 continue
             track_id = detection.track_id if detection.track_id is not None else (-1 if label == "person" else -2)

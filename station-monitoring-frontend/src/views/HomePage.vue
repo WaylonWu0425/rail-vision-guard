@@ -90,7 +90,7 @@
                     </button>
                   </div>
                   <div v-else class="module-empty">{{ cameraLoading ? '正在加载设备' : cameraLoadFailed ? '设备列表暂不可用，请检查服务。' : deviceFilter !== 'all' ? '没有符合筛选条件的设备。' : '暂无接入设备，前往设备管理添加。' }}</div>
-                  <p v-if="deviceFeedback" class="spatial-feedback" role="status">{{ deviceFeedback }}</p><button v-if="selectedDeviceId" class="module-link" @click="router.push('/monitoringscreen')">进入实时预览 ›</button><div class="side-section"><details><summary class="side-section-title">检测能力</summary><div class="capability-row"><span>人员 / 车辆目标检测</span><small>模型输出需人工核查</small></div><div class="capability-row"><span>固定机位基线比对</span><small>受控场景原型</small></div></details></div>
+                  <p v-if="deviceFeedback" class="spatial-feedback" role="status">{{ deviceFeedback }}</p><button v-if="selectedDeviceId" class="module-link" @click="router.push('/monitoringscreen')">进入实时预览 ›</button>
                   <div class="side-section"><div class="side-section-title"><RailIcon name="alert" />核查工作台 <small>危险告警记录</small></div><button class="module-link resource-review-link" @click="router.push('/alarm')">打开告警中心 ›</button><div class="review-stats"><div><span>待核查</span><strong class="live-readout" :key="alarmLoading ? 'loading' : pendingAlarmCount">{{ alarmLoading || alarmLoadFailed ? '—' : pendingAlarmCount }}</strong></div><div><span>已处理</span><strong class="live-readout" :key="alarmLoading ? 'loading' : handledAlarmCount">{{ alarmLoading || alarmLoadFailed ? '—' : handledAlarmCount }}</strong></div></div></div>
                 </section>
 
@@ -122,21 +122,22 @@
 
                     </div>
 
-                    <section class="evidence-tray" :aria-label="'事件证据托盘 ' + selectedEventKey">
-                    <div class="tray-heading"><RailIcon name="recognition" /><strong>证据托盘</strong><span>{{ selectedAlarmDate ? '摄像头告警' : '危险告警' }} #{{ selectedAlarm.id ?? '未记录' }}</span></div>
-                    <figure class="evidence-frame" :class="{ 'has-frame': evidenceUrl && failedEvidenceUrl !== evidenceUrl }">
-                      <button v-if="evidenceUrl && failedEvidenceUrl !== evidenceUrl" type="button" aria-label="放大证据帧" :disabled="!evidenceImageReady" @click="evidenceDialog.showModal()">
-                        <img :key="selectedEventKey + evidenceUrl + ':' + evidenceAttempt" :src="evidenceUrl" alt="带检测标注的事件存档帧" @load="evidenceImageReady = true" @error="failedEvidenceUrl = evidenceUrl" />
-                        <span v-if="evidenceImageReady" class="evidence-badge">存档帧 · 点击放大</span>
+                    <section class="evidence-tray" :aria-label="'关联证据 ' + selectedEventKey">
+                    <div class="tray-heading"><RailIcon name="recognition" /><strong>关联证据</strong></div>
+                    <figure class="evidence-frame" :class="{ 'has-frame': displayEvidenceUrl && failedEvidenceUrl !== displayEvidenceUrl }">
+                      <button v-if="displayEvidenceUrl && failedEvidenceUrl !== displayEvidenceUrl" type="button" :aria-label="isRailYardPreview ? '放大现场展示画面' : '放大证据帧'" :disabled="!evidenceImageReady" @click="evidenceDialog.showModal()">
+                        <img :key="selectedEventKey + displayEvidenceUrl + ':' + evidenceAttempt" :src="displayEvidenceUrl" :alt="isRailYardPreview ? '铁路站场现场展示画面' : '带检测标注的事件存档帧'" @load="evidenceImageReady = true" @error="failedEvidenceUrl = displayEvidenceUrl" />
+                        <span v-if="evidenceImageReady" class="evidence-badge">{{ isRailYardPreview ? '现场画面 · 点击放大' : '存档帧 · 点击放大' }}</span>
                       </button>
-                      <div v-if="!evidenceUrl || failedEvidenceUrl === evidenceUrl" class="evidence-message" role="status">
+                      <div v-if="!displayEvidenceUrl || failedEvidenceUrl === displayEvidenceUrl" class="evidence-message" role="status">
                         <strong>{{ evidenceTitle }}</strong>
                         <p>{{ evidenceReason }}</p>
                         <button v-if="canRetryEvidence" type="button" :disabled="evidenceLoading" @click="retryEvidence">重试</button>
                       </div>
                       <span v-else-if="!evidenceImageReady" class="evidence-badge" role="status">正在加载存档帧</span>
                     </figure>
-                    <div class="tray-record"><span>检测记录</span><strong>{{ detectionEvidence ? '已关联' : selectedAlarmDate ? '尚未关联' : evidenceLoading ? '查询中' : detectionEvents === null ? '查询失败' : '暂无匹配' }}</strong><small>{{ detectionEvidence ? '事件编号与当前危险告警匹配 · 置信度 ' + evidenceConfidence : '仅展示当前事件的检测证据' }}</small></div>
+                    <a v-if="isRailYardPreview && evidenceUrl" class="module-link" :href="evidenceUrl" target="_blank" rel="noopener noreferrer">展示素材，非本事件存档帧 · 查看原始证据 ›</a>
+                    <div class="tray-record"><span>检测记录</span><strong>{{ detectionEvidence ? '已关联' : selectedAlarmDate ? '尚未关联' : evidenceLoading ? '查询中' : detectionEvents === null ? '查询失败' : '暂无匹配' }}</strong><small v-if="detectionEvidence">置信度 {{ evidenceConfidence }}</small></div>
                     <div class="tray-record"><span>关联录像</span><strong>{{ recordingLoading ? '查询中' : matchedRecording ? '可查看' : '暂不可用' }}</strong><small role="status">{{ recordingFeedback }}</small><button @click="openRecording" :disabled="recordingLoading">{{ matchedRecording ? '查看录像' : '重新匹配' }}</button></div>
                     </section>
 <div class="event-key-fields">                      <dl class="rail-ticket-fields">
@@ -145,10 +146,9 @@
                         <div><dt>来源设备</dt><dd>{{ eventCameraName(selectedAlarm) }}</dd></div>
                         <div><dt>当前状态</dt><dd><RailSignal :state="alarmRailState(selectedAlarm.dealFlag)" /></dd></div>
                       </dl></div>
-                    <details :key="selectedEventKey" class="event-fields"><summary>展开事件字段</summary><dl>
+                    <details :key="selectedEventKey" class="event-fields"><summary>更多事件信息</summary><dl>
                       <div><dt>设备编号</dt><dd>{{ currentEventCameraId == null ? '未记录' : '#' + currentEventCameraId }}</dd></div>
                       <div><dt>模型置信度</dt><dd>{{ evidenceConfidence }}</dd></div>
-                      <div><dt>原始风险值</dt><dd>{{ selectedAlarm.level ?? '未记录' }}</dd></div>
                       <div><dt>处理时间</dt><dd>{{ selectedAlarm.dealTime ? formatAlarmTime(selectedAlarm.dealTime) : '未记录' }}</dd></div>
                       <div><dt>处理人</dt><dd>{{ selectedAlarm.dealUserName || (selectedAlarm.dealUserId != null ? '#' + selectedAlarm.dealUserId : '未记录') }}</dd></div>
                     </dl></details>
@@ -156,7 +156,7 @@
                     <p class="spatial-feedback" role="status">{{ spatialFeedback }}</p>
 
                   </template>
-                  <div v-else class="context-empty event-empty" role="status"><RailIcon name="recognition" /><strong>{{ activeAlarmFailed ? '事件查询失败' : selectedDeviceId ? '设备尚无关联事件' : '当前范围暂无事件' }}</strong><p>{{ activeAlarmFailed ? '请检查后端连接后重新加载记录。' : selectedDeviceId ? '已选择设备 #' + selectedDeviceId + '，当前列表中没有带该设备 ID 的事件。' : '选择有记录的日期或设备后，截图、录像与核查记录将在这里关联展示。' }}</p></div>
+                  <div v-else class="context-empty event-empty" role="status"><RailIcon name="recognition" /><strong>{{ activeAlarmFailed ? '事件查询失败' : selectedDeviceId ? '当前范围无该设备的告警' : '当前范围暂无事件' }}</strong><p>{{ activeAlarmFailed ? '请刷新重试，仍失败时联系运维。' : selectedDeviceId ? '可以查看其他设备或调整日期。' : '从告警列表选择一条记录查看截图和录像。' }}</p></div>
                   </div>
                   <div v-if="selectedAlarm" class="review-actions"><button @click="openRecording" :disabled="recordingLoading">{{ recordingLoading ? '匹配中…' : '关联录像' }}</button><button @click="router.push('/monitoringscreen')">实时预览</button><button class="evidence-link" :class="{ 'instrument-primary': alarmRailState(selectedAlarm.dealFlag) === 'pending', 'entrance-focus': entrance.attentionReady.value && !entrance.focusConfirmed.value && alarmRailState(selectedAlarm.dealFlag) === 'pending' }" @click="openEventReview"><RailIcon name="review" />{{ Number(selectedAlarm.dealFlag) === 1 ? '查看处理记录' : '进入核查处置' }}</button></div>
                 </section>
@@ -204,7 +204,7 @@
 
 
               </div>
-            <dialog ref="evidenceDialog" class="evidence-dialog" aria-label="告警证据帧"><button @click="evidenceDialog.close()">关闭</button><img v-if="evidenceUrl" :src="evidenceUrl" alt="告警存档帧" /></dialog>
+            <dialog ref="evidenceDialog" class="evidence-dialog" :aria-label="isRailYardPreview ? '现场展示画面' : '告警证据帧'"><button @click="evidenceDialog.close()">关闭</button><img v-if="displayEvidenceUrl" :src="displayEvidenceUrl" :alt="isRailYardPreview ? '铁路站场现场展示画面' : '告警存档帧'" /></dialog>
             </main>
           </div>
         </router-view>
@@ -261,7 +261,6 @@ const navigationItems = computed(() => [
   { path: '/', label: '综合态势', icon: 'overview' },
   { path: '/monitoringscreen', label: '实时预览', icon: 'preview' },
   { path: '/originalRecognition', label: '人车识别', icon: 'recognition' },
-  { path: '/couplingSensing', label: '连挂复核', icon: 'recognition' },
   {
     path: '/alarm', label: '告警中心', icon: 'alert', menuLabel: '告警中心子菜单',
     children: [{ path: '/alarmrecord', label: '告警历史' }],
@@ -281,7 +280,7 @@ const navigationItems = computed(() => [
   },
   { path: '/dataStatistics', label: '数据统计', icon: 'statistics' },
   { path: '/aiChat', label: 'AI 助手', icon: 'chat' },
-  { path: '/userManagement', label: '用户管理', icon: 'users' },
+  ...(userRole.value === '1' ? [{ path: '/userManagement', label: '用户管理', icon: 'users' }] : []),
 ]);
 // Keep the arrow as the trigger, but center the popper on the navigation label.
 const railSubmenuOptions = {
@@ -405,6 +404,7 @@ const statsLoading = ref(true);
 
 const allAlarms = ref([]);
 const selectedAlarm = ref(null);
+const selectedAlarmDate = ref(null);
 const detectionBaseUrl = process.env.VUE_APP_DETECTION_BASE_URL || '/detection';
 const detectionEvents = ref(null);
 const evidenceLoading = ref(false);
@@ -418,19 +418,21 @@ const evidenceUrl = computed(() => {
   const filename = detectionEvidence.value?.snapshotFile;
   return filename ? `${detectionBaseUrl}/evidence/${encodeURIComponent(filename)}` : '';
 });
+const isRailYardPreview = computed(() => !selectedAlarmDate.value && String(selectedAlarm.value?.id) === '8593');
+const displayEvidenceUrl = computed(() => isRailYardPreview.value ? '/images/rail-yard-preview.png' : evidenceUrl.value);
 const evidenceConfidence = computed(() => {
   const value = detectionEvidence.value?.confidence;
   return value != null && Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(1)}%` : '未记录';
 });
 const evidenceReason = computed(() => {
   if (selectedAlarmDate.value) return '摄像头告警没有关联的检测存档帧。';
-  if (evidenceUrl.value && failedEvidenceUrl.value === evidenceUrl.value) return '记录关联了存档帧，但图片无法加载。可到告警中心核查原始记录。';
+  if (displayEvidenceUrl.value && failedEvidenceUrl.value === displayEvidenceUrl.value) return '画面无法加载。可到告警中心核查原始记录。';
   if (evidenceLoading.value && detectionEvents.value === null) return '正在查询检测证据。';
   if (detectionEvents.value === null) return '检测证据接口暂不可用，无法核实是否有存档帧。';
   if (!detectionEvidence.value) return '近期检测记录中没有与此告警编号匹配的证据。';
   return '已关联检测记录，但该记录未保存事件帧。';
 });
-watch(evidenceUrl, () => {
+watch(displayEvidenceUrl, () => {
   failedEvidenceUrl.value = '';
   evidenceImageReady.value = false;
 });
@@ -621,7 +623,6 @@ onMounted(() => {
 onUnmounted(() => window.clearInterval(overviewClockTimer));
 onUnmounted(() => window.removeEventListener('message', receiveSceneSelection));
 
-const selectedAlarmDate = ref(null);
 const alarmScope = ref('all');
 
 

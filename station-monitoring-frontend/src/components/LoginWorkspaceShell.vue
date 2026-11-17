@@ -20,7 +20,7 @@
 
         <figure class="rail-art">
           <div class="illustration-toolbar">
-            <span>⌑&nbsp; 固定机位 · 功能演示</span>
+            <span>固定机位 · 流程示意</span>
           </div>
           <svg class="station-drawing" viewBox="0 0 720 414" role="img" aria-labelledby="station-title station-desc">
             <title id="station-title">固定枪机、站台与人车检测示意</title>
@@ -84,7 +84,7 @@
           <div class="recording-timeline"><span></span><i></i><b></b></div>
         </div>
 
-        <nav class="storyline" aria-label="功能演示阶段">
+        <nav class="storyline" aria-label="监控工作流程">
           <div class="storyline-steps">
             <button v-for="(step, index) in steps" :key="step" type="button" class="story-step" :class="{ active: phase === index }" :aria-pressed="phase === index" @click="selectPhase(index)"><span>0{{ index + 1 }}</span>{{ step }}<i></i></button>
           </div>
@@ -96,7 +96,7 @@
         <div class="login-auth-content"><slot /></div>
       </section>
     </div>
-    <footer class="workspace-footer"><span>视界巡警 · 车站视频监控管理系统</span><span>蓝白工作台 / 功能示意</span></footer>
+    <footer class="workspace-footer"><span>视界巡警 · 车站视频监控管理系统</span></footer>
   </main>
 </template>
 
@@ -106,7 +106,7 @@ import guardLogo from '@/assets/guard-logo.webp'
 
 const steps = ['实时预览', '人车识别', '告警截图', '录像追溯']
 const stageTitles = [
-  '连接现场，保持清晰视野',
+  '查看已接入摄像头的实时画面',
   '系统分析画面，辅助识别人员与车辆',
   '人员进入监控区域，保留告警截图',
   '手动录像覆盖告警时刻，便于回放追溯'

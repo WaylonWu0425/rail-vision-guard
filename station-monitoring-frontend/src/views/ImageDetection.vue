@@ -149,9 +149,10 @@
 
           <div class="monitor-footer">
             <span>{{ regionStateText }}</span>
-            <span>推理设备：{{ currentPerformance.deviceName || detectionService.deviceName }}</span>
-            <span>运行性能：{{ performanceText }}</span>
-            <span>异物功能：固定机位受控原型</span>
+            <details><summary>运行诊断</summary>
+              <span>计算设备 {{ currentPerformance.deviceName || detectionService.deviceName }}</span>
+              <span>处理性能 {{ performanceText }}</span>
+            </details>
           </div>
         </section>
 
@@ -159,7 +160,6 @@
           <div class="card-heading events-heading">
             <div>
               <h2>近期检测事件</h2>
-              <p>仅展示系统已写入的告警与证据，不生成模拟结果</p>
             </div>
             <el-radio-group v-model="eventFilter" size="small">
               <el-radio-button label="current">当前摄像头</el-radio-button>
@@ -306,11 +306,11 @@
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="异物遗留" name="foreign">
+          <el-tab-pane label="画面变化检测" name="foreign">
             <div class="rule-content">
               <div class="prototype-banner">
-                <strong>受控场景原型</strong>
-                <span>仅适用于固定机位、固定光照，不能等同于通用异物识别。</span>
+                <strong>适用条件</strong>
+                <span>仅用于固定机位和稳定光照下的空场景比对。发现新增静止区域后，请人工核查画面。</span>
               </div>
 
               <div class="baseline-card" :class="{ ready: foreignObjectRule.baselineReady }">
@@ -332,7 +332,7 @@
               <div class="field-row">
                 <div>
                   <label class="field-label">静止持续时间</label>
-                  <p class="field-help">达到阈值后产生原型提示</p>
+                  <p class="field-help">新增区域持续达到此时间后发出提示。</p>
                 </div>
                 <div class="number-field">
                   <el-input-number v-model="foreignObjectRule.dwellSeconds" :min="2" :max="300" :step="1" />
@@ -342,17 +342,12 @@
 
               <div class="field-row">
                 <div>
-                  <label class="field-label">启用原型</label>
+                  <label class="field-label">启用画面变化检测</label>
                   <p class="field-help">必须先完成基准采集</p>
                 </div>
                 <el-switch v-model="foreignObjectRule.enabled" :disabled="!foreignObjectRule.baselineReady" />
               </div>
 
-              <ol class="workflow-steps">
-                <li><span>1</span>固定摄像头与现场显示位置</li>
-                <li><span>2</span>保持空场景并采集基准</li>
-                <li><span>3</span>放入静止物体观察提示</li>
-              </ol>
 
               <el-button
                 class="primary-rule-action"
@@ -507,8 +502,8 @@ const ruleStateTag = computed(() => {
   if (activeRuleTab.value === 'foreign') {
     if (!foreignObjectRule.baselineReady) return { label: '待建基准', type: 'warning' };
     return foreignObjectRule.enabled
-      ? { label: '原型已启用', type: 'success' }
-      : { label: '原型已停用', type: 'info' };
+      ? { label: '已启用', type: 'success' }
+      : { label: '已停用', type: 'info' };
   }
   if (regionRule.points.length < 3) return { label: regionDrawing.value ? '绘制中' : '未设置', type: 'info' };
   if (regionDirty.value) return { label: '待保存', type: 'warning' };
@@ -535,7 +530,7 @@ const getDetectionEvent = (alarmId) => detectionEvents.value.find(event => Numbe
 const formatConfidence = (value) => value == null ? '—' : `${Math.round(Number(value) * 100)}%`;
 const detectionEventTypeLabel = (eventType) => {
   if (eventType === 'region_intrusion') return '区域入侵（实时模型）';
-  if (eventType === 'foreign_object') return '新增静止物体（受控原型）';
+  if (eventType === 'foreign_object') return '画面新增静止区域';
   if (eventType === 'object_detection') return '目标检测（实时模型）';
   return '检测事件';
 };
@@ -582,7 +577,7 @@ const refreshDisplayedTaskStates = () => Promise.all(displayedCameras.map(camera
 
 const startDetection = async (camera) => {
   if (!detectionService.ready) {
-    ElMessage.error('YOLO检测服务未就绪，请先启动检测服务并检查数据库连接');
+    ElMessage.error('检测服务未就绪，请联系运维后重试。');
     return;
   }
   try {

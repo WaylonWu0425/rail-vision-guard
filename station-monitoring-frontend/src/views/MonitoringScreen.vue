@@ -9,7 +9,7 @@
         <el-button size="small" type="primary" plain @click="getCameraData">重新加载</el-button>
       </div>
       <div v-else-if="cameraList.length === 0" class="video-empty">
-        暂无摄像头，请先在“摄像头管理”中添加设备。
+        暂无摄像头，请前往「设备管理」添加。
       </div>
       <div v-else-if="displayedCameras.length === 0" class="video-empty">
         <span>从右侧选择一台在线摄像头，即可打开实时预览。</span>

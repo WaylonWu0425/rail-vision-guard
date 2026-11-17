@@ -1,7 +1,7 @@
 <template>
   <main class="media-workspace original-page" aria-label="人车识别">
     <header class="media-heading">
-      <div><h1>人车识别</h1><p>定位录像时刻，核对模型结果并记录人工复核意见。</p></div>
+      <div><h1>人车识别</h1><p>导入站场录像，查看目标检测结果，回看关键画面。</p></div>
       <router-link v-if="alarmEvent" class="media-action" :to="{ path: '/alarm', query: { kind: 'danger', event: alarmEvent } }">返回告警核查</router-link>
     </header>
 
@@ -24,17 +24,17 @@
       </div>
       <div v-else-if="mode === 'usb'" class="source-control">
         <label class="media-status" for="original-usb">本机摄像头编号</label>
-        <el-input-number id="original-usb" v-model="deviceIndex" :min="0" :max="9" :disabled="active || starting" @change="clearResult" />
+        <el-input-number id="original-usb" v-model="deviceIndex" :min="0" :max="9" :disabled="active || starting" @change="clearResult()" />
       </div>
       <div v-else class="source-control">
-        <el-select v-model="cameraId" aria-label="选择网络摄像头" placeholder="选择网络摄像头" :disabled="active || starting" :loading="loadingCameras" @change="clearResult">
+        <el-select v-model="cameraId" aria-label="选择网络摄像头" placeholder="选择网络摄像头" :disabled="active || starting" :loading="loadingCameras" @change="clearResult()">
           <el-option v-for="camera in cameras" :key="camera.id" :value="camera.id" :label="camera.name || `摄像头 ${camera.id}`" />
         </el-select>
         <button type="button" class="media-action" :disabled="active || starting || loadingCameras" @click="loadCameras">刷新设备</button>
       </div>
 
       <div class="media-actions recognition-controls">
-        <button v-if="!active" type="button" class="media-action media-action--primary" :disabled="starting || !connected || !hasInput" @click="start()">{{ starting ? '正在启动…' : '开始识别' }}</button>
+        <button v-if="!active" type="button" class="media-action media-action--primary" :disabled="starting || !connected || !hasInput" @click="start()">{{ starting ? '正在启动…' : mode === 'video' ? '开始录像识别' : '开始识别' }}</button>
         <button v-if="active && job?.mode === 'video'" type="button" class="media-action"
           :disabled="controlling || job.state === 'loading' || job.state === 'stopping'"
           @click="control(job.state === 'paused' ? 'resume' : 'pause')">{{ job.state === 'paused' ? '继续识别' : '暂停识别' }}</button>
@@ -55,7 +55,8 @@
           <span class="media-status" :data-tone="job?.state === 'failed' || pollFailed ? 'attention' : undefined" role="status">{{ statusText }}</span>
         </header>
         <div class="media-surface recognition-surface">
-          <RecognitionFrame v-if="currentFrame" :frame="currentFrame" :annotated="view === 'annotated'" :selected="selectedTarget" :zoom="zoom" />
+          <RecognitionFrame v-if="currentFrame" :frame="currentFrame" :annotated="view === 'annotated'" :selected="selectedTarget" :zoom="zoom"
+            :region="visibleRegion" :edit-region="editingVisibleRegion" @region-point="addReviewPoint" />
           <img v-if="showSource && previewUrl && !previewUnavailable && mode === 'image'" :src="previewUrl" alt="所选图片的原始画面" @error="previewUnavailable = true" />
           <video v-if="previewUrl && mode === 'video'" v-show="showSource && !previewUnavailable"
             ref="previewVideo" crossorigin="anonymous" :src="previewUrl" muted playsinline preload="metadata" aria-label="所选录像的原始画面"
@@ -79,7 +80,7 @@
             <button v-if="canPlay" type="button" class="media-action" @click="togglePlayback">{{ videoPlaying ? '暂停回放' : '播放原录像' }}</button>
             <button v-if="canPlay && showSource && !active" type="button" class="media-action" :disabled="starting || !connected || videoPlaying" @click="recognizePlayhead">识别当前画面</button>
             <button v-if="currentFrame" type="button" class="media-action" @click="toggleAnnotation">{{ view === 'annotated' ? '查看同帧原画' : '查看检测标注' }}</button>
-            <button v-if="currentFrame" type="button" class="media-action" :aria-pressed="zoom > 1" @click="zoom = zoom > 1 ? 1 : 2">{{ zoom > 1 ? '恢复画面' : '放大画面' }}</button>
+            <button v-if="currentFrame" type="button" class="media-action" :disabled="editingVisibleRegion" :aria-pressed="zoom > 1" @click="zoom = zoom > 1 ? 1 : 2">{{ zoom > 1 ? '恢复画面' : '放大画面' }}</button>
             <button v-if="latestFrame && (heldFrame || view === 'source')" type="button" class="media-action" @click="followLatest">{{ active ? '跟随识别' : '查看最后检测帧' }}</button>
           </div>
           <span class="media-status frame-clock">{{ frameDescription }}</span>
@@ -113,23 +114,61 @@
           <header class="media-panel-head"><h2>当前帧检测结果</h2><span v-if="currentFrame" class="media-status">{{ currentFrame.mediaSeconds == null ? '第 ' + currentFrame.frameIndex + ' 帧' : timecode(currentFrame.mediaSeconds) }}</span></header>
           <template v-if="currentFrame">
             <div class="recognition-counts">
-              <div>人员 <strong>{{ currentFrame.counts.person }}</strong></div>
-              <div>汽车 <strong>{{ currentFrame.counts.car }}</strong></div>
+              <div v-for="(count, label) in currentFrame.counts" :key="label">{{ detectionLabel(label) }}框 <strong>{{ count }}</strong></div>
             </div>
             <div v-if="currentFrame.detections.length" class="recognition-list" role="group" aria-label="检测目标列表">
               <button v-for="(row, index) in currentFrame.detections" :key="index" type="button" class="target-row"
                 :aria-pressed="selectedTarget === index" @click="focusTarget(index)">
-                <span class="target-dot" :class="row.label" aria-hidden="true"></span><span>{{ row.label === 'person' ? '人员' : '汽车' }} {{ index + 1 }}</span><span aria-hidden="true">›</span>
+                <span class="target-dot" :class="row.label" aria-hidden="true"></span><span>{{ detectionLabel(row.label) }} {{ index + 1 }}</span><span aria-hidden="true">›</span>
               </button>
             </div>
-            <p v-else class="media-help result-note">当前帧未检出人员或汽车。</p>
+            <p v-else class="media-help result-note">当前帧未检出目标。</p>
             <p v-if="targetDetails" class="target-details media-help">
-              <strong>{{ targetDetails.label === 'person' ? '人员' : '汽车' }} {{ selectedTarget + 1 }}</strong>
+              <strong>{{ detectionLabel(targetDetails.label) }} {{ selectedTarget + 1 }}</strong>
               <span>模型置信度 {{ (targetDetails.confidence * 100).toFixed(1) }}%</span>
+              <span v-if="regionMatches">{{ regionMatches[selectedTarget] ? '框底中心在复核区域内' : '框底中心在复核区域外' }}</span>
             </p>
           </template>
           <p v-else class="media-help result-note">{{ resultNote }}</p>
         </section>
+        <section v-if="mode === 'video' && (job?.mode === 'video' || detectionSamples.length)"
+          class="media-panel" aria-label="检测画面回看">
+          <header class="media-panel-head"><h2>检测画面回看</h2></header>
+          <div class="detection-sample-content">
+            <p class="media-help">{{ detectionSamples.length ? '点击时刻核对同帧原画和检测框。这里保留含检测框的部分画面。' : active ? '正在识别，含检测框的部分画面会出现在这里。' : '本次没有保留含检测框的画面。' }}</p>
+            <ul v-if="detectionSamples.length" class="clip-list" aria-label="识别时刻">
+              <li v-for="sample in detectionSamples" :key="sample.frameIndex">
+                <button type="button" class="target-row" :aria-pressed="heldFrame === sample" @click="showDetectionSample(sample)">
+                  <span class="frame-clock">{{ timecode(sample.mediaSeconds) }}</span>
+                  <span>{{ detectionSummary(sample.counts) }}</span>
+                  <span aria-hidden="true">›</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </section>
+        <details v-if="localInput && currentFrame && !active" class="media-panel media-disclosure">
+          <summary>画面区域复核</summary>
+          <div class="review-region-controls">
+            <p class="media-help">{{ editingVisibleRegion ? '沿边界依次点击画面添加顶点，也可以输入百分比坐标。' : '按目标框底边中心判断与手绘区域的关系，仅用于当前帧复核。' }}</p>
+            <p v-if="regionMatches" class="media-status" role="status">区域内目标框 {{ regionMatches.filter(Boolean).length }} 个</p>
+            <div class="media-actions">
+              <button v-if="!editingVisibleRegion" type="button" class="media-action" @click="beginReviewRegion">{{ regionMatches ? '重新绘制' : '绘制复核区域' }}</button>
+              <template v-else>
+                <button type="button" class="media-action media-action--primary" :disabled="regionPoints.length < 3" @click="finishReviewRegion">查看区域结果</button>
+                <button type="button" class="media-action" :disabled="!regionPoints.length" @click="undoReviewPoint">撤销顶点</button>
+              </template>
+              <button v-if="editingVisibleRegion || regionMatches" type="button" class="media-action" @click="resetReviewRegion">{{ editingVisibleRegion ? '取消' : '清除区域' }}</button>
+            </div>
+            <form v-if="editingVisibleRegion" class="review-region-coordinates" @submit.prevent="addReviewCoordinate">
+              <label>横向（%）<input v-model.number="regionX" required type="number" min="0" max="100" step="any" /></label>
+              <label>纵向（%）<input v-model.number="regionY" required type="number" min="0" max="100" step="any" /></label>
+              <button type="submit" class="media-action" :disabled="regionPoints.length >= 20">添加顶点</button>
+            </form>
+            <p v-if="editingVisibleRegion" class="media-status">{{ regionPoints.length }} / 20 个顶点</p>
+            <p v-if="editingVisibleRegion && regionMessage" class="media-feedback" role="alert">{{ regionMessage }}</p>
+          </div>
+        </details>
         <section v-if="mode === 'video'" class="media-panel clip-panel" aria-label="片段复核">
           <header class="media-panel-head"><h2>片段复核</h2><span class="media-status">{{ recording ? '交接可查' : '本次页面' }}</span></header>
           <div class="clip-content">
@@ -175,12 +214,20 @@
           <summary>识别说明与技术信息</summary>
           <div class="model-details">
             <p class="media-help">已产生的业务告警可在「告警中心」查看。</p>
+            <label v-if="localInput && profiles.length > 1" class="inference-profile">
+              识别配置
+              <select v-model="profile" :disabled="active || starting || savingClip">
+                <option v-for="item in profiles" :key="item.id" :value="item.id">
+                  {{ item.inputSize === 1280 ? '细节复核' : '标准识别' }} · {{ item.inputSize }}
+                </option>
+              </select>
+            </label>
             <dl>
-              <div><dt>模型</dt><dd>YOLOv8n / best.pt</dd></div>
-              <div><dt>识别类别</dt><dd>人员、汽车</dd></div>
-              <div><dt>推理输入</dt><dd>640 · 整图</dd></div>
-              <div><dt>阈值</dt><dd>置信度 0.25 / NMS IoU 0.7</dd></div>
-              <div><dt>运行设备</dt><dd>CPU</dd></div>
+              <div><dt>模型</dt><dd>{{ inference?.model || '—' }}</dd></div>
+              <div><dt>识别类别</dt><dd>{{ (inference?.classes ?? ['person', 'car']).map(detectionLabel).join('、') }}</dd></div>
+              <div><dt>{{ frameInference ? '本帧推理输入' : '默认推理输入' }}</dt><dd>{{ inference?.inputSize ?? 640 }} · 整图</dd></div>
+              <div><dt>阈值</dt><dd>置信度 {{ inference?.confidence ?? 0.25 }} / NMS IoU {{ inference?.iou ?? 0.7 }}</dd></div>
+              <div><dt>运行设备</dt><dd>{{ inference?.device?.toUpperCase() || 'CPU' }}</dd></div>
               <div v-if="currentFrame"><dt>本帧耗时</dt><dd>{{ currentFrame.processingMs }} ms</dd></div>
               <div v-if="currentFrame"><dt>平均处理频率</dt><dd>{{ currentFrame.completedHz }} 帧/秒</dd></div>
             </dl>
@@ -195,6 +242,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import RecognitionFrame from '@/components/RecognitionFrame.vue';
+import { detectionInReviewRegion, regionError } from '@/utils/reviewRegion';
+import { detectionLabel } from '@/utils/detectionLabels';
 import { getRecordingMatch, getRecordingFile, getRecordingReviews, saveRecordingReview } from '@/http/api/recording.js';
 import '@/assets/style/media-workspace.css';
 
@@ -204,7 +253,12 @@ const modes = [{ value: 'image', label: '图片' }, { value: 'video', label: '�
 const mode = ref('video'), file = ref(null), deviceIndex = ref(0), cameraId = ref(null);
 const cameras = ref([]), loadingCameras = ref(false), cameraError = ref('');
 const connected = ref(false), connecting = ref(false), starting = ref(false), controlling = ref(false), error = ref('');
+const config = ref(null), profile = ref('full640');
+const profiles = computed(() => config.value?.profiles ?? []);
+const localInput = computed(() => mode.value === 'image' || mode.value === 'video');
 const job = ref(null), latestFrame = ref(null), heldFrame = ref(null);
+const detectionSamples = ref([]);
+const sampleLimit = 12;
 const view = ref('source'), selectedTarget = ref(null), zoom = ref(1);
 const duration = ref(0), playhead = ref(0), videoPlaying = ref(false), pollFailed = ref(false);
 const clips = ref([]), selectedClip = ref(null), draft = ref(null), clipMessage = ref('');
@@ -232,6 +286,17 @@ const active = computed(() => job.value && ['loading', 'running', 'paused', 'sto
 const hasInput = computed(() => ['image', 'video'].includes(mode.value) ? Boolean(file.value) : mode.value === 'usb' ? Number.isInteger(deviceIndex.value) : Boolean(cameraId.value));
 const showSource = computed(() => view.value === 'source');
 const currentFrame = computed(() => showSource.value ? null : heldFrame.value || latestFrame.value);
+const regionFrame = ref(null), regionPoints = ref([]), editingRegion = ref(false), regionMessage = ref('');
+const regionX = ref(50), regionY = ref(50);
+const visibleRegion = computed(() => currentFrame.value && currentFrame.value === regionFrame.value ? regionPoints.value : []);
+const editingVisibleRegion = computed(() => Boolean(currentFrame.value && currentFrame.value === regionFrame.value && editingRegion.value));
+const regionMatches = computed(() => {
+  if (editingVisibleRegion.value || visibleRegion.value.length < 3) return null;
+  const frame = currentFrame.value;
+  return frame.detections.map(target => detectionInReviewRegion(target.box, frame.width, frame.height, visibleRegion.value));
+});
+const frameInference = computed(() => currentFrame.value?.inference);
+const inference = computed(() => frameInference.value || config.value);
 const targetDetails = computed(() => currentFrame.value?.detections[selectedTarget.value]);
 const canPlay = computed(() => mode.value === 'video' && duration.value > 0 && !previewUnavailable.value);
 const displaySeconds = computed(() => currentFrame.value?.mediaSeconds ?? playhead.value);
@@ -254,7 +319,7 @@ const placeholderHint = computed(() => {
   if (active.value || starting.value) return '首帧结果将在画面就绪后显示。';
   if (previewConverting.value) return '录像就绪后可预览。';
   if (previewUnavailable.value) return '当前文件无法直接预览，可尝试开始识别。';
-  return hasInput.value ? '点击上方「开始识别」查看结果。' : '请在上方选择文件或摄像头。';
+  return hasInput.value ? (mode.value === 'video' ? '点击上方「开始录像识别」查看结果。' : '点击上方「开始识别」查看结果。') : '请在上方选择文件或摄像头。';
 });
 const resultNote = computed(() => pollFailed.value || job.value?.state === 'failed' ? '识别暂不可用，请查看上方提示。'
   : showSource.value && canPlay.value && job.value ? '该时刻未载入检测结果。可继续看原画，或打开已保留的检测帧。'
@@ -266,6 +331,10 @@ const frameDescription = computed(() => {
   return frame.mediaSeconds == null ? index : index + ' · ' + timecode(frame.mediaSeconds);
 });
 const formatSize = size => size < 1024 * 1024 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1024 / 1024).toFixed(1)} MB`;
+function detectionSummary(counts) {
+  return Object.entries(counts).filter(([, count]) => count > 0)
+    .map(([label, count]) => `${detectionLabel(label)}框 ${count}`).join(' · ');
+}
 function timecode(seconds) {
   const centiseconds = Math.max(0, Math.round(Number(seconds) * 100));
   const minutes = Math.floor(centiseconds / 6000);
@@ -279,7 +348,9 @@ const markerPosition = seconds => {
 };
 const markerTop = index => ((index + Number(eventSeconds.value != null)) % 2) * 23 + 'px';
 function openFile() { fileInput.value?.click(); }
-function clearResult() {
+function clearResult(keepDetectionSamples = false) {
+  resetReviewRegion();
+  if (!keepDetectionSamples) detectionSamples.value = [];
   generation++;
   clearTimeout(timer);
   job.value = null;
@@ -419,6 +490,41 @@ function focusTarget(index) {
   selectedTarget.value = selectedTarget.value === index ? null : index;
   view.value = 'annotated';
 }
+function resetReviewRegion() {
+  regionFrame.value = null;
+  regionPoints.value = [];
+  editingRegion.value = false;
+  regionMessage.value = '';
+}
+function beginReviewRegion() {
+  if (!currentFrame.value || !localInput.value || active.value) return;
+  resetReviewRegion();
+  heldFrame.value = regionFrame.value = currentFrame.value;
+  zoom.value = 1;
+  editingRegion.value = true;
+}
+function addReviewPoint(point) {
+  if (!editingVisibleRegion.value) return;
+  if (regionPoints.value.length >= 20) {
+    regionMessage.value = '最多添加 20 个顶点。';
+    return;
+  }
+  regionPoints.value.push(point);
+  regionMessage.value = '';
+}
+function undoReviewPoint() {
+  regionPoints.value.pop();
+  regionMessage.value = '';
+}
+function addReviewCoordinate() {
+  if (![regionX.value, regionY.value].every(value => Number.isFinite(value) && value >= 0 && value <= 100)) return;
+  addReviewPoint({ x: regionX.value / 100, y: regionY.value / 100 });
+}
+function finishReviewRegion() {
+  if (!editingVisibleRegion.value) return;
+  regionMessage.value = regionError(regionPoints.value);
+  if (!regionMessage.value) editingRegion.value = false;
+}
 function toggleAnnotation() {
   heldFrame.value = currentFrame.value;
   view.value = view.value === 'annotated' ? 'raw' : 'annotated';
@@ -426,6 +532,22 @@ function toggleAnnotation() {
 function followLatest() {
   previewVideo.value?.pause();
   heldFrame.value = selectedTarget.value = null;
+  zoom.value = 1;
+  view.value = 'annotated';
+}
+function rememberDetectionSample(frame) {
+  if (frame.mode !== 'video' || !Number.isFinite(frame.mediaSeconds) || !frame.detections.length) return;
+  const samples = detectionSamples.value;
+  const last = samples[samples.length - 1];
+  const videoLength = duration.value || (frame.sourceFps > 0 ? frame.totalFrames / frame.sourceFps : 0);
+  const spacing = Math.max(2, videoLength / sampleLimit);
+  if (samples.length >= sampleLimit || (last && frame.mediaSeconds - last.mediaSeconds < spacing)) return;
+  samples.push(frame);
+}
+function showDetectionSample(frame) {
+  previewVideo.value?.pause();
+  heldFrame.value = frame;
+  selectedTarget.value = null;
   zoom.value = 1;
   view.value = 'annotated';
 }
@@ -467,7 +589,14 @@ async function connect() {
   if (connecting.value) return;
   connecting.value = true;
   error.value = '';
-  try { const data = await api('/config'); if (disposed) return; token = data.token; connected.value = true; }
+  try {
+    const { token: sessionToken, ...settings } = await api('/config');
+    if (disposed) return;
+    token = sessionToken;
+    config.value = settings;
+    if (!profiles.value.some(item => item.id === profile.value)) profile.value = settings.defaultProfile || 'full640';
+    connected.value = true;
+  }
   catch (_) { if (!disposed) { connected.value = false; error.value = '无法连接识别服务。请重试，仍失败时联系运维。'; } }
   finally { connecting.value = false; }
 }
@@ -591,7 +720,7 @@ async function start(stillImage = null, at = null) {
   if (['image', 'video'].includes(mode.value) && !file.value) { error.value = '请先选择文件。'; return; }
   if (mode.value === 'rtsp' && !cameraId.value) { error.value = '请先选择网络摄像头。'; return; }
   if (file.value && file.value.size > (mode.value === 'image' ? 16 : 512) * 1024 * 1024) { error.value = '文件超过允许大小，请缩小图片或截取较短视频。'; return; }
-  clearResult();
+  clearResult(Boolean(stillImage));
   singleFrameSeconds = at;
   starting.value = true;
   previewVideo.value?.pause();
@@ -603,6 +732,7 @@ async function start(stillImage = null, at = null) {
       const form = new FormData();
       form.append('mode', stillImage ? 'image' : mode.value);
       form.append('file', stillImage || file.value);
+      if (profiles.value.length > 1) form.append('profile', profile.value);
       options = { method: 'POST', body: form };
     } else options = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: mode.value, deviceIndex: deviceIndex.value, cameraId: cameraId.value }) };
     const result = await api('/jobs', options);
@@ -624,6 +754,7 @@ async function poll(mine) {
       await image.decode();
       if (disposed || mine !== generation || revision !== pollRevision) return;
       latestFrame.value = { ...status, mediaSeconds: singleFrameSeconds ?? status.mediaSeconds, image: image.src };
+      rememberDetectionSample(latestFrame.value);
     }
     if (disposed || mine !== generation || revision !== pollRevision) return;
     if (pollFailed.value) error.value = '';
@@ -692,6 +823,8 @@ onUnmounted(() => {
 .clip-panel .media-action { min-height: 32px; }
 .clip-selected { padding: 8px 0 2px; border-top: 1px solid var(--media-line); overflow-wrap: anywhere; }
 .clip-list { list-style: none; margin: 0; padding: 0 3px; max-height: 128px; overflow: auto; }
+.detection-sample-content { padding: 8px 13px; }
+.detection-sample-content .media-help { margin: 0 0 5px; }
 .recognition-source, .mode-buttons, .source-control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .recognition-source > span { margin-right: 2px; }
 .mode-buttons button[aria-pressed="true"] { background: #154669; border-color: #79c6ed; color: #fff; font-weight: 650; }
@@ -718,6 +851,13 @@ onUnmounted(() => {
 .model-details dl { font-size: 12px; }
 .model-details dl div { display: flex; justify-content: space-between; gap: 8px; margin: 7px 0; }
 .model-details dd { margin: 0; text-align: right; }
+.inference-profile { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; font-size: 13px; }
+.inference-profile select { min-height: 36px; color: inherit; background: #102a42; border: 1px solid #49647d; border-radius: 4px; padding: 0 7px; }
+.review-region-controls { padding: 0 13px 11px; display: grid; gap: 8px; }
+.review-region-controls p { margin: 0; }
+.review-region-coordinates { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.review-region-coordinates label { display: grid; gap: 3px; font-size: 12px; }
+.review-region-coordinates input { width: 70px; min-height: 34px; color: inherit; background: #102a42; border: 1px solid #49647d; border-radius: 4px; padding: 0 6px; }
 @media (max-width: 1050px) { .source-limit { display: none; } }
 @media (min-width: 821px) and (min-height: 680px) {
   .recognition-columns { grid-template-rows: minmax(0, 1fr); }

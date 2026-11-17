@@ -1,5 +1,4 @@
 """Local NCNN inference for supplied freight-car/coupler weights. No alarm writes."""
-import os
 import sys
 import time
 from pathlib import Path
@@ -10,7 +9,7 @@ import cv2
 import ncnn
 import numpy as np
 
-MODEL = Path(os.environ.get('RAIL_COUPLER_MODEL_DIR') or ROOT / 'models')
+MODEL = ROOT.parent.parent.parent / '模型'
 LABELS = ('freight car', 'coupler_far', 'couplers', 'coupler_near')
 
 

@@ -49,8 +49,7 @@ const routes = [
             },
             {
                 path: '/couplingSensing',
-                name: 'CouplingSensing',
-                component: () => import('@/views/CouplingSensing.vue')
+                redirect: '/originalRecognition'
             },
             {
                 path: '/ballMachine',

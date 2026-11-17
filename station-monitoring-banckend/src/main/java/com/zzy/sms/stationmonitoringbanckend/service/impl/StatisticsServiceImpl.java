@@ -475,34 +475,42 @@ public class StatisticsServiceImpl implements StatisticsService {
     // 获取报表标题
     private String getReportTitle(String reportType) {
         switch (reportType) {
-            case "1": return "设备运行统计报表";
-            case "2": return "报警信息统计报表";
+            case "1": return "设备与告警报表";
+            case "2": return "告警统计报表";
             case "3": return "任务完成统计报表";
             case "4": return "综合统计报表";
             default: return "统计报表";
         }
     }
 
-    // 添加设备运行报表内容到PDF
+    private String reportDeviceStatus(Object status) {
+        switch (Objects.toString(status, "")) {
+            case "0": return "在线";
+            case "1": return "离线";
+            default: return "未知";
+        }
+    }
+
+    // 添加设备与告警明细到 PDF
     private void addDeviceRunningReportContent(Document document, Map<String, Object> data, Font normalFont, Font headerFont) throws DocumentException {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> deviceRunningData = (List<Map<String, Object>>) data.get("deviceRunningData");
 
         if (deviceRunningData != null && !deviceRunningData.isEmpty()) {
-            PdfPTable table = new PdfPTable(5);
+            document.add(new Paragraph("日期范围用于统计摄像头告警。登记时长从设备登记日起算，状态为当前记录。", normalFont));
+            PdfPTable table = new PdfPTable(4);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{3, 2, 2, 2, 2});
-            addTableHeader(table, new String[]{"设备名称", "运行时间(小时)", "故障次数", "故障率", "当前状态"}, headerFont);
+            table.setWidths(new float[]{3, 2, 3, 2});
+            addTableHeader(table, new String[]{"设备名称", "登记时长（小时）", "所选时段告警次数", "当前状态"}, headerFont);
             for (Map<String, Object> deviceData : deviceRunningData) {
                 table.addCell(new PdfPCell(new Phrase(deviceData.get("deviceName").toString(), normalFont)));
                 table.addCell(new PdfPCell(new Phrase(deviceData.get("runningTime").toString(), normalFont)));
                 table.addCell(new PdfPCell(new Phrase(deviceData.get("failureCount").toString(), normalFont)));
-                table.addCell(new PdfPCell(new Phrase(deviceData.get("failureRate").toString(), normalFont)));
-                table.addCell(new PdfPCell(new Phrase(deviceData.get("status").toString(), normalFont)));
+                table.addCell(new PdfPCell(new Phrase(reportDeviceStatus(deviceData.get("status")), normalFont)));
             }
             document.add(table);
         } else {
-            document.add(new Paragraph("没有设备运行数据", normalFont));
+            document.add(new Paragraph("暂无设备记录", normalFont));
         }
     }
 
@@ -567,7 +575,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     // 添加综合统计报表内容到PDF
     private void addComprehensiveReportContent(Document document, LocalDateTime startTime, LocalDateTime endTime, Font normalFont, Font headerFont, Font titleFont) throws DocumentException {
-        document.add(new Paragraph("一、设备运行统计", headerFont));
+        document.add(new Paragraph("一、设备与告警", headerFont));
         addDeviceRunningReportContent(document, getDeviceRunningStats(startTime, endTime), normalFont, headerFont);
         document.add(new Paragraph(" ", normalFont)); // 空行
         document.add(new Paragraph("二、报警信息统计", headerFont));
@@ -596,7 +604,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         if (deviceRunningData != null && !deviceRunningData.isEmpty()) {
             // 添加表头
             Row headerRow = sheet.createRow(startRow);
-            String[] headers = {"设备名称", "运行时间(小时)", "故障次数", "故障率", "当前状态"};
+            String[] headers = {"设备名称", "登记时长（小时）", "所选时段告警次数", "当前状态"};
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
@@ -610,12 +618,11 @@ public class StatisticsServiceImpl implements StatisticsService {
                 row.createCell(0).setCellValue(deviceData.get("deviceName").toString());
                 row.createCell(1).setCellValue(deviceData.get("runningTime").toString());
                 row.createCell(2).setCellValue(deviceData.get("failureCount").toString());
-                row.createCell(3).setCellValue(deviceData.get("failureRate").toString());
-                row.createCell(4).setCellValue(deviceData.get("status").toString());
+                row.createCell(3).setCellValue(reportDeviceStatus(deviceData.get("status")));
             }
         } else {
             Row row = sheet.createRow(startRow);
-            row.createCell(0).setCellValue("没有设备运行数据");
+            row.createCell(0).setCellValue("暂无设备记录");
         }
     }
 
@@ -713,7 +720,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private void addComprehensiveExcelContent(XSSFSheet sheet, XSSFCellStyle headerStyle, LocalDateTime startTime, LocalDateTime endTime, int startRow) {
         // 设备运行统计
         Row titleRow1 = sheet.createRow(startRow);
-        titleRow1.createCell(0).setCellValue("一、设备运行统计");
+        titleRow1.createCell(0).setCellValue("一、设备与告警");
         Map<String, Object> deviceData = getDeviceRunningStats(startTime, endTime);
         addDeviceRunningExcelContent(sheet, headerStyle, deviceData, startRow + 1);
 

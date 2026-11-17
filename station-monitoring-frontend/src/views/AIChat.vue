@@ -35,7 +35,7 @@
 
         <div class="scope-note">
           <el-icon><InfoFilled /></el-icon>
-          <div><strong>能力边界</strong><span>当前 YOLO 已验证类别仅为人员和车辆；异物检测为固定机位基线比对原型。设备操作与告警处置须由值守人员确认。</span></div>
+          <div><strong>使用说明</strong><span>助手提供操作与排查建议。设备操作和告警处置由值守人员核查确认。</span></div>
         </div>
       </aside>
       <button v-if="sidebarOpen" type="button" class="sidebar-backdrop" aria-label="关闭助手菜单" @click="sidebarOpen = false"></button>
@@ -52,7 +52,7 @@
           <div class="toolbar-actions">
             <div class="service-status" :class="serviceState" role="status" aria-live="polite">
               <span class="status-dot" aria-hidden="true"></span>
-              <div><strong>{{ serviceStatusText }}</strong><span>{{ modelName }}</span></div>
+              <div><strong>{{ serviceStatusText }}</strong></div>
             </div>
             <el-button text :icon="Delete" :disabled="messages.length === 0 || loading" @click="clearConversation">清空对话</el-button>
           </div>
@@ -63,7 +63,7 @@
           <div v-if="messages.length === 0" class="welcome">
             <div class="welcome-icon"><el-icon><MagicStick /></el-icon></div>
             <h2>视界巡警运维知识助手</h2>
-            <p>提供摄像头接入、实时预览、YOLO 人车检测、告警核查和录像回放等系统操作建议。</p>
+            <p>查询摄像头接入、检测任务、告警核查和录像回看等操作步骤。</p>
             <div class="prompt-grid">
               <button v-for="example in exampleQuestions" :key="example" type="button" :disabled="loading"
                       @click="handleQuickAction(example)">
@@ -152,7 +152,6 @@ const loading = ref(false)
 const lastError = ref('')
 const lastQuestion = ref('')
 const serviceState = ref('checking')
-const modelName = ref('DeepSeek')
 const capabilitiesExpanded = ref(false)
 const sidebarOpen = ref(false)
 const showScrollLatest = ref(false)
@@ -161,26 +160,26 @@ let healthCheckTimer = null
 const capabilities = [
   '摄像头接入、在线状态与取流配置',
   '实时预览、截图与手动录像',
-  'YOLO 人员与车辆检测任务',
+  '人员与车辆检测任务',
   '告警记录、截图核查与处置状态',
   '录像检索、回放与告警时间关联',
-  '固定机位异物基线原型说明'
+  '固定机位画面变化检测的设置与限制'
 ]
 const quickActions = [
-  { label: '核查演示闭环', prompt: '请按照“实时预览→YOLO 智能检测→告警记录→手动录像→视频回放”的顺序，检查视界巡警比赛演示闭环，并给出逐项验收清单。' },
+  { label: '查找告警关联录像', prompt: '请说明值守人员如何根据摄像头和告警发生时间查找关联录像，以及没有覆盖该时段的录像时如何记录。' },
   { label: '排查摄像头离线', prompt: '视界巡警实时预览页显示摄像头离线。请按照供电与网络、设备地址、RTSP 配置、后端服务和页面状态的顺序给出排查步骤。' },
-  { label: '说明异物检测边界', prompt: '请说明视界巡警固定机位基线比对异物检测原型的适用条件、能力边界和演示注意事项。' },
+  { label: '设置画面变化检测', prompt: '请说明视界巡警固定机位基线比对的设置步骤、使用条件，以及何时需要重新采集空场景基准。' },
   { label: '规范告警处置', prompt: '请结合告警类型、摄像头、发生时间、截图、处理状态和关联录像，给出视界巡警的告警核查与处置流程。' }
 ]
 const exampleQuestions = [
-  '如何验证实时预览到录像回放的完整链路？',
+  '如何从实时预览录制并回看录像？',
   '固定枪机为什么不显示云台和光学变焦控制？',
-  'YOLO 检测服务未就绪时如何排查？',
+  '检测画面打不开时怎么排查？',
   '如何根据告警发生时间定位对应录像？'
 ]
 
-const serviceStatusText = computed(() => ({ checking: '正在检查配置', configured: 'DeepSeek 已配置',
-  verified: 'DeepSeek 连接正常', unavailable: 'AI 服务未配置', error: 'AI 服务异常' }[serviceState.value]))
+const serviceStatusText = computed(() => ({ checking: '正在连接助手', configured: '助手已配置',
+  verified: '助手可用', unavailable: '助手未配置', error: '助手暂不可用' }[serviceState.value]))
 const canSend = computed(() => inputMessage.value.trim().length > 0 && !loading.value && serviceState.value !== 'unavailable')
 const renderMarkdown = (content) => markdown.render(content || '')
 
@@ -189,7 +188,6 @@ const checkService = async (showChecking = false) => {
   if (showChecking) serviceState.value = 'checking'
   try {
     const data = (await getAiHealth()).data || {}
-    modelName.value = data.model || 'DeepSeek'
     serviceState.value = data.configured ? (connectionVerified ? 'verified' : 'configured') : 'unavailable'
   } catch (error) {
     serviceState.value = 'error'
@@ -212,7 +210,6 @@ const sendMessage = async (question = inputMessage.value.trim()) => {
     const result = (await sendAiChat(history)).data?.data
     if (!result?.content) throw new Error('AI服务返回了空内容')
     messages.value.push(createMessage('assistant', result.content))
-    modelName.value = result.model || modelName.value
     serviceState.value = 'verified'
   } catch (error) {
     lastError.value = error.message || 'AI服务暂时不可用，请稍后重试'
