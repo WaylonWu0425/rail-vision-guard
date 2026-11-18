@@ -142,17 +142,8 @@ def decode_image(data):
 def read_camera(camera_id=None):
     """Read existing configuration only; never create tables or write alarms."""
     import pymysql
-    import yaml
-    import re
-    config_file = ROOT.parent.parent / 'station-monitoring-banckend/src/main/resources/application.yaml'
-    config = yaml.safe_load(config_file.read_text(encoding='utf-8'))
-    ds = config['spring']['datasource']
-    match = re.search(r'jdbc:mysql://([^:/?]+)(?::(\d+))?/([^?]+)', str(ds['url']))
-    if not match:
-        raise RuntimeError('无法读取已有摄像头数据库配置')
-    with pymysql.connect(host=match[1], port=int(match[2] or 3306),
-                         user=str(ds['username']), password=str(ds.get('password', '')),
-                         database=match[3], cursorclass=pymysql.cursors.DictCursor,
+    from database_config import mysql_options
+    with pymysql.connect(**mysql_options(), cursorclass=pymysql.cursors.DictCursor,
                          connect_timeout=3, read_timeout=3) as conn:
         with conn.cursor() as cursor:
             if camera_id is None:

@@ -1,4 +1,4 @@
-# 视界巡警（Rail Vision Guard）
+# 视界巡警——车站视频智能识别与协同平台
 
 面向铁路站场的视频智能监控与事件核查原型。系统连接摄像头或本地视频，组织实时画面、人员与车辆目标提示、区域规则、告警证据、录像回放和人工核查，帮助值守人员沿“发现—查看证据—核查—回溯”的路径处理现场信息。
 
@@ -18,16 +18,16 @@
 
 ## 本地运行
 
-1. 安装项目各子目录依赖，并启动 MySQL 与 Redis。前端依赖记录在 `station-monitoring-frontend/package-lock.json`，后端依赖记录在 `station-monitoring-banckend/pom.xml`，检测服务依赖记录在 `scan/Detection/requirements-runtime.txt`。
-2. 将 `station-monitoring-banckend/src/main/resources/application.example.yaml` 复制为同目录的 `application.yaml`，根据本机数据库、Redis 与相关服务填写环境变量及连接参数。将 `scan/Detection/camera_config.example.json` 复制为 `camera_config.json`，按获授权的设备填写连接信息；无摄像头时保持示例设备禁用。
-3. 在 `station-monitoring-frontend/` 运行 `npm ci`、`npm run serve`。构建 Spring Boot 后端前，将获授权的摄像机厂商 SDK JAR 放到 `station-monitoring-banckend/src/main/resources/libs/netsdk-1.0-demo.jar`，并按 SDK 说明配置对应的原生库。检测服务的独立启动方式见 `scan/Detection/README` 和根目录 `DEMO_RUNBOOK.md`。
-4. 如需一次性演示启动，可参考 `start_demo.ps1`。运行前先核对其中的本机目录与端口配置。
+评审首次运行请按[环境配置与验证](docs/评审运行指南.md)配置。指南提供 Windows PowerShell 命令、依赖目录、端口和两个验证入口：
 
-数据库首次部署可使用 `station-monitoring-db/station_monitoring_schema.sql` 建表。仓库不包含真实用户记录、摄像头口令或现场监控视频。
+- **先验证人车识别**：安装 Python 运行依赖，放置评审用权重，使用自备或获授权的录像运行验证脚本。
+- **再启动业务工作台**：配置 JDK 17、Maven、Node.js、MySQL 和 Redis，准备 SDK，依次启动前端、Java 后端和检测服务。
+
+根目录 [环境变量模板](.env.example) 用于准备本地配置。首次建表使用 `station-monitoring-db/station_monitoring_schema.sql`，只对新的演示数据库执行。
 
 ## 能力与验证
 
-「连挂复核」支持车钩录像抽帧识别、机位标定与测距验证、录音和三轴加速度对齐、本地证据归档。启动前端前设置 `VUE_APP_FIELD_TRIAL_ENABLED=true` 可显示现场试用检查表。已完成的软件验证、实测条件与待采材料见[作业感知升级设计与实施报告](docs/作业感知升级设计与实施报告.md)。
+「连挂复核」源码作为作业感知原型保留，当前工作台导航已隐藏该入口。原型验证范围见[作业感知升级设计与实施报告](docs/作业感知升级设计与实施报告.md)。
 
 「人车识别」支持从录像时间轴定位画面、切换同帧原图与标注、记录人工复核片段。「告警中心」按摄像头和发生时间关联录像。系统录像的复核意见可供已登录的操作人员交接查看，本地导入录像的标记随当前页面会话保留。
 
@@ -42,5 +42,7 @@
 ## 团队与版本
 
 最初版本由视界巡警项目团队编写。后续工作围绕检测服务接入、跟踪与规则验证、业务闭环、空间展示和作业感知原型逐步开展。版本过程与对应材料见 `VERSION_HISTORY.md`。Git 历史中的早期提交是根据原版和当前保存的源码快照**在建库时导入**，提交时间不是当时的开发时间；此后的修改按实际开发过程提交。
+
+团队协作分工包括场景与产品、系统与集成、算法与数据。对应工作包括事件定义与页面设计、前后端和视频接入、模型与现场样本验证。正式参赛成员信息以赛事报名表为准。
 
 项目开发使用常规开发工具和 AI 辅助工具进行代码检查、实现与文档整理；团队负责需求判断、代码复核、场景解释与测试。第三方框架、基础模型及老师提供的材料会在对应说明中标明来源和用途。

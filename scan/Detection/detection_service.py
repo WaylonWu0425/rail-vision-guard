@@ -12,7 +12,6 @@ import atexit
 import json
 import logging
 import os
-import re
 import threading
 import time
 from datetime import datetime
@@ -25,25 +24,16 @@ from urllib.parse import quote
 import cv2
 import numpy as np
 import pymysql
-import yaml
+from database_config import mysql_options
 from inference_strategies import STRATEGIES, predict_boxes
 from flask import Flask, Response, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = BASE_DIR.parent.parent
 DEFAULT_MODEL_PATH = BASE_DIR / "models" / "best.pt"
 EVIDENCE_DIR = BASE_DIR / "evidence"
 BASELINE_DIR = BASE_DIR / "baselines"
-BACKEND_CONFIG_PATH = (
-    PROJECT_DIR
-    / "station-monitoring-banckend"
-    / "src"
-    / "main"
-    / "resources"
-    / "application.yaml"
-)
 
 logging.basicConfig(
     level=os.getenv("DETECTION_LOG_LEVEL", "INFO").upper(),
@@ -97,12 +87,8 @@ CLASS_TEXT = {
 
 def load_database_config() -> dict[str, Any]:
     """Read database settings from environment or the Spring configuration."""
-    config: dict[str, Any] = {
-        "host": os.getenv("DETECTION_DB_HOST"),
-        "port": env_int("DETECTION_DB_PORT", 3306),
-        "user": os.getenv("DETECTION_DB_USER"),
-        "password": os.getenv("DETECTION_DB_PASSWORD"),
-        "database": os.getenv("DETECTION_DB_NAME"),
+    return {
+        **mysql_options(),
         "charset": "utf8mb4",
         "cursorclass": pymysql.cursors.DictCursor,
         "connect_timeout": 5,
@@ -110,35 +96,6 @@ def load_database_config() -> dict[str, Any]:
         "write_timeout": 5,
         "autocommit": True,
     }
-
-    if BACKEND_CONFIG_PATH.exists():
-        with BACKEND_CONFIG_PATH.open("r", encoding="utf-8") as stream:
-            spring_config = yaml.safe_load(stream) or {}
-        datasource = spring_config.get("spring", {}).get("datasource", {})
-        jdbc_url = str(datasource.get("url", ""))
-        match = re.search(r"jdbc:mysql://([^:/?]+)(?::(\d+))?/([^?]+)", jdbc_url)
-        if match:
-            config["host"] = config["host"] or match.group(1)
-            config["port"] = env_int(
-                "DETECTION_DB_PORT", int(match.group(2) or 3306)
-            )
-            config["database"] = config["database"] or match.group(3)
-        config["user"] = config["user"] or datasource.get("username")
-        if config["password"] is None:
-            config["password"] = datasource.get("password", "")
-
-    missing = [key for key in ("host", "user", "database") if not config.get(key)]
-    if missing:
-        raise RuntimeError(
-            "Database configuration is incomplete: " + ", ".join(missing)
-        )
-    # YAML interprets an unquoted numeric password as int; database drivers
-    # require text/bytes credentials.
-    config["host"] = str(config["host"])
-    config["user"] = str(config["user"])
-    config["password"] = str(config.get("password") or "")
-    config["database"] = str(config["database"])
-    return config
 
 
 class Repository:

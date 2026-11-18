@@ -36,3 +36,6 @@
 *.sqlite*
 # Local checkpoint for the person/vehicle recognition page
 /scan/Detection/models/yolov8l.pt
+/station-monitoring-banckend/src/main/resources/libs/*.jar
+/station-monitoring-banckend/src/main/resources/libs/*.dll
+/station-monitoring-banckend/src/main/resources/libs/*.so

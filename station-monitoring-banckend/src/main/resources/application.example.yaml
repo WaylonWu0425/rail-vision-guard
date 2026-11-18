@@ -1,15 +1,14 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    # 本地 MySQL（部署到服务器时再换回远程地址）
-    url: jdbc:mysql://localhost:3306/station_monitoring?characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: ${APP_CONFIG_PASSWORD:}
+    url: "jdbc:mysql://${DETECTION_DB_HOST:127.0.0.1}:${DETECTION_DB_PORT:3306}/${DETECTION_DB_NAME:station_monitoring}?characterEncoding=utf-8&serverTimezone=Asia/Shanghai"
+    username: "${DETECTION_DB_USER:rail_app}"
+    password: "${DETECTION_DB_PASSWORD:}"
   mail:
-    host: smtp.qq.com
-    port: 465
-    username: 3165741995@qq.com
-    password: ${APP_CONFIG_PASSWORD:}
+    host: "${APP_MAIL_HOST:smtp.qq.com}"
+    port: ${APP_MAIL_PORT:465}
+    username: "${APP_MAIL_USERNAME:}"
+    password: "${APP_MAIL_PASSWORD:}"
     protocol: smtps
     properties:
       mail:
@@ -20,11 +19,9 @@ spring:
           ssl:
             enable: true
   redis:
-    # 本地 Redis（部署到服务器时再换回远程地址）
-    host: localhost
-    port: 6379
-    password:
-    ${APP_CONFIG_PASSWORD:}
+    host: "${APP_REDIS_HOST:127.0.0.1}"
+    port: ${APP_REDIS_PORT:6379}
+    password: "${APP_REDIS_PASSWORD:}"
     database: 0
     lettuce:
       pool:
